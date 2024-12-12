@@ -1507,6 +1507,10 @@ declare namespace entities {
         FollowingRequestsSentRequest,
         FollowingRequestsSentResponse,
         FollowingRequestsRejectRequest,
+        FollowingRequestsHistoryRequest,
+        FollowingRequestsHistoryResponse,
+        FollowingHistoryRequest,
+        FollowingHistoryResponse,
         GalleryFeaturedRequest,
         GalleryFeaturedResponse,
         GalleryPopularResponse,
@@ -2001,6 +2005,12 @@ type FollowingDeleteRequest = operations['following___delete']['requestBody']['c
 type FollowingDeleteResponse = operations['following___delete']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
+type FollowingHistoryRequest = operations['following___history']['requestBody']['content']['application/json'];
+
+// @public (undocumented)
+type FollowingHistoryResponse = operations['following___history']['responses']['200']['content']['application/json'];
+
+// @public (undocumented)
 type FollowingInvalidateRequest = operations['following___invalidate']['requestBody']['content']['application/json'];
 
 // @public (undocumented)
@@ -2014,6 +2024,12 @@ type FollowingRequestsCancelRequest = operations['following___requests___cancel'
 
 // @public (undocumented)
 type FollowingRequestsCancelResponse = operations['following___requests___cancel']['responses']['200']['content']['application/json'];
+
+// @public (undocumented)
+type FollowingRequestsHistoryRequest = operations['following___requests___history']['requestBody']['content']['application/json'];
+
+// @public (undocumented)
+type FollowingRequestsHistoryResponse = operations['following___requests___history']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
 type FollowingRequestsListRequest = operations['following___requests___list']['requestBody']['content']['application/json'];

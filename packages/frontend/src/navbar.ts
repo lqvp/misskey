@@ -176,6 +176,16 @@ export const navbarItemDef = reactive({
 		show: computed(() => $i != null),
 		to: `/@${$i?.username}`,
 	},
+	followHistory: {
+		title: i18n.ts._followHistory.title,
+		icon: 'ti ti-history',
+		to: '/my/follow-history',
+	},
+	followRequestHistory: {
+		title: i18n.ts._followRequestHistory.title,
+		icon: 'ti ti-history-toggle',
+		to: '/my/follow-requests-history',
+	},
 	cacheClear: {
 		title: i18n.ts.clearCache,
 		icon: 'ti ti-trash',
