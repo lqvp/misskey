@@ -11,7 +11,7 @@ import type { MiBlocking } from '@/models/Blocking.js';
 import { QueueService } from '@/core/QueueService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
 import { DI } from '@/di-symbols.js';
-import type { FollowRequestsRepository, BlockingsRepository, UserListsRepository, UserListMembershipsRepository } from '@/models/_.js';
+import type { FollowRequestsRepository, FollowHistoryRepository, BlockingsRepository, UserListsRepository, UserListMembershipsRepository } from '@/models/_.js';
 import Logger from '@/logger.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
 import { ApRendererService } from '@/core/activitypub/ApRendererService.js';
@@ -31,6 +31,9 @@ export class UserBlockingService implements OnModuleInit {
 
 		@Inject(DI.followRequestsRepository)
 		private followRequestsRepository: FollowRequestsRepository,
+
+		@Inject(DI.followHistoryRepository)
+		private followHistoryRepository: FollowHistoryRepository,
 
 		@Inject(DI.blockingsRepository)
 		private blockingsRepository: BlockingsRepository,
@@ -88,6 +91,28 @@ export class UserBlockingService implements OnModuleInit {
 		if (this.userEntityService.isLocalUser(blocker) && this.userEntityService.isRemoteUser(blockee)) {
 			const content = this.apRendererService.addContext(this.apRendererService.renderBlock(blocking));
 			this.queueService.deliver(blocker, content, blockee.inbox, false);
+		}
+
+		// フォロー履歴に「blocked」を保存
+		if (this.userEntityService.isLocalUser(blocker)) {
+			await this.followHistoryRepository.insert({
+				id: this.idService.gen(),
+				type: 'blocked', // ブロックした側の履歴
+				fromUserId: blocker.id, // ブロックした側のID
+				toUserId: blockee.id, // ブロックされた側のID
+				timestamp: new Date(),
+			});
+		}
+
+		// フォローリクエスト履歴に「wasBlocked」を保存
+		if (this.userEntityService.isLocalUser(blockee)) {
+			await this.followHistoryRepository.insert({
+				id: this.idService.gen(),
+				type: 'wasBlocked', // ブロックされた側の履歴
+				fromUserId: blocker.id, // ブロックされた側のID
+				toUserId: blockee.id, // ブロックした側のID
+				timestamp: new Date(),
+			});
 		}
 	}
 
@@ -186,6 +211,28 @@ export class UserBlockingService implements OnModuleInit {
 		if (this.userEntityService.isLocalUser(blocker) && this.userEntityService.isRemoteUser(blockee)) {
 			const content = this.apRendererService.addContext(this.apRendererService.renderUndo(this.apRendererService.renderBlock(blocking), blocker));
 			this.queueService.deliver(blocker, content, blockee.inbox, false);
+		}
+
+		// フォロー履歴に「unBlocked」を保存
+		if (this.userEntityService.isLocalUser(blocker)) {
+			await this.followHistoryRepository.insert({
+				id: this.idService.gen(),
+				type: 'unBlocked', // アンブロックした側の履歴
+				fromUserId: blocker.id, // アンブロックした側のID
+				toUserId: blockee.id, // アンブロックされた側のID
+				timestamp: new Date(),
+			});
+		}
+
+		// フォローリクエスト履歴に「wasUnBlocked」を保存
+		if (this.userEntityService.isLocalUser(blockee)) {
+			await this.followHistoryRepository.insert({
+				id: this.idService.gen(),
+				type: 'wasUnBlocked', // アンブロックされた側の履歴
+				fromUserId: blocker.id, // アンブロックされた側のID
+				toUserId: blockee.id, // アンブロックした側のID
+				timestamp: new Date(),
+			});
 		}
 	}
 

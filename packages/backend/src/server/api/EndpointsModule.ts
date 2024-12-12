@@ -189,6 +189,8 @@ import * as ep___following_requests_cancel from './endpoints/following/requests/
 import * as ep___following_requests_list from './endpoints/following/requests/list.js';
 import * as ep___following_requests_sent from './endpoints/following/requests/sent.js';
 import * as ep___following_requests_reject from './endpoints/following/requests/reject.js';
+import * as ep___following_requests_history from './endpoints/following/requests/history.js';
+import * as ep___following_history from './endpoints/following/history.js';
 import * as ep___gallery_featured from './endpoints/gallery/featured.js';
 import * as ep___gallery_popular from './endpoints/gallery/popular.js';
 import * as ep___gallery_posts from './endpoints/gallery/posts.js';
@@ -580,6 +582,8 @@ const $following_requests_cancel: Provider = { provide: 'ep:following/requests/c
 const $following_requests_list: Provider = { provide: 'ep:following/requests/list', useClass: ep___following_requests_list.default };
 const $following_requests_sent: Provider = { provide: 'ep:following/requests/sent', useClass: ep___following_requests_sent.default };
 const $following_requests_reject: Provider = { provide: 'ep:following/requests/reject', useClass: ep___following_requests_reject.default };
+const $following_requests_history: Provider = { provide: "ep:following/requests/history", useClass: ep___following_requests_history.default };
+const $following_history: Provider = { provide: "ep:following/history", useClass: ep___following_history.default };
 const $gallery_featured: Provider = { provide: 'ep:gallery/featured', useClass: ep___gallery_featured.default };
 const $gallery_popular: Provider = { provide: 'ep:gallery/popular', useClass: ep___gallery_popular.default };
 const $gallery_posts: Provider = { provide: 'ep:gallery/posts', useClass: ep___gallery_posts.default };
@@ -975,6 +979,8 @@ const $reversi_verify: Provider = { provide: 'ep:reversi/verify', useClass: ep__
 		$following_requests_list,
 		$following_requests_sent,
 		$following_requests_reject,
+		$following_requests_history,
+		$following_history,
 		$gallery_featured,
 		$gallery_popular,
 		$gallery_posts,
@@ -1363,6 +1369,8 @@ const $reversi_verify: Provider = { provide: 'ep:reversi/verify', useClass: ep__
 		$following_requests_cancel,
 		$following_requests_list,
 		$following_requests_reject,
+		$following_requests_history,
+		$following_history,
 		$gallery_featured,
 		$gallery_popular,
 		$gallery_posts,
