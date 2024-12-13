@@ -42,6 +42,7 @@
 - 独自機能ページの追加 https://github.com/team-shahu/misskey/pull/42
 - 予約投稿機能 https://github.com/team-shahu/misskey/pull/46 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/51
 - フォロー/フォロリクの履歴 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/50
+- ドライブから削除したファイルをオブジェクトストレージからも葬るように https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/52
 
 ## Special Thanks
 - [Misskey](https://github.com/misskey-dev/misskey)  
