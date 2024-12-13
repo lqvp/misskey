@@ -4118,6 +4118,7 @@ export type components = {
       silence: boolean;
       forYou: boolean;
       forYourRoles: boolean;
+      roleNames: string[];
       isRead?: boolean;
     };
     App: {
