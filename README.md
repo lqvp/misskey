@@ -43,7 +43,7 @@
 - 予約投稿機能 https://github.com/team-shahu/misskey/pull/46 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/51
 - フォロー/フォロリクの履歴 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/50 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/53
 - ドライブから削除したファイルをオブジェクトストレージからも葬るように https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/52
-
+- えもえもローディング画面 https://github.com/team-shahu/misskey/pull/55
 ## Special Thanks
 - [Misskey](https://github.com/misskey-dev/misskey)  
 - [にる村](https://github.com/n1lsqn/misskey)  
