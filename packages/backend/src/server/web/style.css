@@ -9,8 +9,34 @@ html {
 	color: var(--MI_THEME-fg);
 }
 
+.hidden {
+	display: none !important;
+}
+
+#tty {
+	z-index: 10001;
+	opacity: 1;
+}
+
+#tty > .tty-line {
+	font-family: 'Courier New', Courier, monospace !important;
+	display: block;
+}
+
+#tty > .tty-line .tty-status-ok {
+	color: green;
+}
+
+#tty > .tty-line .tty-status-failed {
+	color: darkred;
+}
+
+#tty > .tty-line .tty-status-running {
+	color: red;
+}
+
 #splash {
-	position: fixed;
+	position: relative;
 	z-index: 10000;
 	top: 0;
 	left: 0;
@@ -42,7 +68,7 @@ html {
 	left: 0;
 	margin: auto;
 	display: inline-block;
-	width: 28px;
+	width: 60px;
 	height: 28px;
 	transform: translateY(70px);
 	color: var(--MI_THEME-accent);
@@ -60,11 +86,33 @@ html {
 	stroke-linejoin: round;
 	stroke-miterlimit: 1.5;
 }
+
+#splashSpinner > .spinner.bg circle {
+	fill:none;
+	stroke:currentColor;
+	stroke-width:24px;
+}
+#splashSpinner > .spinner.fg path {
+	fill:none;
+	stroke:currentColor;
+	stroke-width:24px;
+}
 #splashSpinner > .spinner.bg {
 	opacity: 0.275;
 }
 #splashSpinner > .spinner.fg {
 	animation: splashSpinner 0.5s linear infinite;
+}
+
+#splashText {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	display: inline-block;
+	inline-size: 70%;
+	block-size: 0;
+	text-align: center;
+	padding-block-start: 200px;
 }
 
 @keyframes splashSpinner {
