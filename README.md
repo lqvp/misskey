@@ -41,7 +41,7 @@
 - いいねボタンの実装 https://github.com/team-shahu/misskey/pull/41 https://github.com/team-shahu/misskey/pull/44 https://github.com/team-shahu/misskey/pull/45
 - 独自機能ページの追加 https://github.com/team-shahu/misskey/pull/42
 - 予約投稿機能 https://github.com/team-shahu/misskey/pull/46 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/51
-- フォロー/フォロリクの履歴 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/50
+- フォロー/フォロリクの履歴 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/50 https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/53
 - ドライブから削除したファイルをオブジェクトストレージからも葬るように https://github.com/team-shahu/misskey/pull/49 https://github.com/team-shahu/misskey/pull/52
 
 ## Special Thanks
