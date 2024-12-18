@@ -29,7 +29,7 @@
 - アバターデコレーションを登録したユーザーがアカウントを消去しても継続して使用ができるように
 - アバターデコレーションをmisskeyUI上から登録できるように https://github.com/team-shahu/misskey/pull/12
 - TL上のサーバー情報をアイコン表示に切り替えられるように https://github.com/team-shahu/misskey/pull/13 https://github.com/team-shahu/misskey/pull/24
-- 特定のロールにのみお知らせを発行する機能 https://github.com/team-shahu/misskey/pull/18
+- 特定のロールにのみお知らせを発行する機能 https://github.com/team-shahu/misskey/pull/18 https://github.com/team-shahu/misskey/pull/54
 - リアクションした人一覧がブロック・ミュートを考慮するようにする設定 https://github.com/team-shahu/misskey/pull/23 https://github.com/team-shahu/misskey/pull/27
 - 誰がリアクションをしたのかを非表示にできる機能 https://github.com/hideki0403/kakurega.app/commit/65d85bb4fe724dc0737f1ac7958bc13c96cc926d
 - 誰がリアクションをしたのかを非表示にできる機能 https://github.com/team-shahu/misskey/pull/35 (https://github.com/team-shahu/misskey/commit/5b2923c8127336d7fd2ee39c76d16f8a30d1b9e1)
