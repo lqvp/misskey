@@ -193,8 +193,8 @@ export const meta = {
 				},
 			},
 			emailWhitelist: {
-				type: 'string',
-				optional: false, nullable: true,
+				type: 'boolean',
+				optional: false, nullable: false,
 			},
 			preservedUsernames: {
 				type: 'array',
@@ -518,8 +518,8 @@ export const meta = {
 				type: 'string',
 				optional: false, nullable: false,
 			},
-			emailToReceiveAbuseReport: {
-				type: 'string',
+			federationHosts: {
+				type: 'array',
 				optional: false, nullable: false,
 				items: {
 					type: 'string',

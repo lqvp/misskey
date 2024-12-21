@@ -5208,7 +5208,7 @@ export type operations = {
             prohibitedWords: string[];
             prohibitedWordsForNameOfUser: string[];
             bannedEmailDomains?: string[];
-            emailWhitelist: string | null;
+            emailWhitelist: boolean;
             preservedUsernames: string[];
             hcaptchaSecretKey: string | null;
             mcaptchaSecretKey: string | null;
@@ -5292,9 +5292,9 @@ export type operations = {
             urlPreviewRequireContentLength: boolean;
             urlPreviewUserAgent: string | null;
             urlPreviewSummaryProxyUrl: string | null;
-            customSplashText: string[];
             federation: string;
             federationHosts: string[];
+            customSplashText: string[];
           };
         };
       };
@@ -9683,10 +9683,10 @@ export type operations = {
           urlPreviewRequireContentLength?: boolean;
           urlPreviewUserAgent?: string | null;
           urlPreviewSummaryProxyUrl?: string | null;
-          customSplashText?: string[] | null;
           /** @enum {string} */
           federation?: 'all' | 'none' | 'specified';
           federationHosts?: string[];
+          customSplashText?: string[] | null;
         };
       };
     };

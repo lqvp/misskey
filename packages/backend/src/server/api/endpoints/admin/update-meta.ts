@@ -188,7 +188,7 @@ export const paramDef = {
 		},
 		customSplashText: { type: 'array', nullable: true, items: {
 			type: 'string',
-		}},
+		} },
 	},
 	required: [],
 } as const;

@@ -161,7 +161,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				needConfirmationToRead: announcement.needConfirmationToRead,
 				userId: announcement.userId,
 				isRoleSpecified: announcement.isRoleSpecified,
-				roles: announcementRoles.filter(announcementRole => announcementRole.announcementId === announcement.id).map(announcementRole => announcementRole.role).filter((role): role is MiRole => role !== null),
+				roles: announcementRoles
+					.filter(announcementRole => announcementRole.announcementId === announcement.id)
+					.map(announcementRole => announcementRole.role)
+					.filter((role): role is NonNullable<typeof role> => role !== null),
 				reads: reads.get(announcement)!,
 			}));
 		});

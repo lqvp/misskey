@@ -26,6 +26,7 @@ import { QueueService } from '@/core/QueueService.js';
 import { IdService } from '@/core/IdService.js';
 import { MiScheduleNoteType } from '@/models/NoteSchedule.js';
 import { RoleService } from '@/core/RoleService.js';
+import { isQuote, isRenote } from '@/misc/is-renote.js';
 import { ApiError } from '../../../error.js';
 
 export const meta = {
@@ -131,6 +132,15 @@ export const meta = {
 		},
 	},
 } as const;
+
+function checkPureRenote(note: MiNote): boolean {
+	return note.renoteId != null &&
+		note.replyId == null &&
+		note.text == null &&
+		note.cw == null &&
+		(!note.fileIds || note.fileIds.length === 0) &&
+		!note.hasPoll;
+}
 
 export const paramDef = {
 	type: 'object',
@@ -275,7 +285,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 				if (renote == null) {
 					throw new ApiError(meta.errors.noSuchRenoteTarget);
-				} else if (isPureRenote(renote)) {
+				} else if (isRenote(renote) && !isQuote(renote)) {
 					throw new ApiError(meta.errors.cannotReRenote);
 				}
 
@@ -308,7 +318,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 				if (reply == null) {
 					throw new ApiError(meta.errors.noSuchReplyTarget);
-				} else if (isPureRenote(reply)) {
+				} else if (checkPureRenote(reply)) {
 					throw new ApiError(meta.errors.cannotReplyToPureRenote);
 				}
 
