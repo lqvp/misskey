@@ -543,6 +543,7 @@ function setVisibility() {
 		isSilenced: $i.isSilenced,
 		localOnly: localOnly.value,
 		src: visibilityButton.value,
+		isPublicNonLtlRestrected: $i.policies.canPublicNonLtlNote !== true || props.mock,
 		...(reply.value ? { isReplyVisibilitySpecified: reply.value.visibility === 'specified' } : {}),
 	}, {
 		changeVisibility: v => {
