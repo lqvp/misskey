@@ -59,7 +59,7 @@ export class NotificationEntityService implements OnModuleInit {
 	async #packInternal <T extends MiNotification | MiGroupedNotification> (
 		src: T,
 		meId: MiUser['id'],
-		 
+
 		options: {
 			checkValidNotifier?: boolean;
 		},
@@ -193,6 +193,12 @@ export class NotificationEntityService implements OnModuleInit {
 			...(notification.type === 'scheduledNoteFailed' ? {
 				reason: notification.reason,
 			} : {}),
+			...(notification.type === 'login' ? {
+				ip: notification.userIp,
+			} : {}),
+			...(notification.type === 'loginFailed' ? {
+				ip: notification.userIp,
+			} : {}),
 			...(notification.type === 'app' ? {
 				body: notification.customBody,
 				header: notification.customHeader,
@@ -261,7 +267,7 @@ export class NotificationEntityService implements OnModuleInit {
 	public async pack(
 		src: MiNotification | MiGroupedNotification,
 		meId: MiUser['id'],
-		 
+
 		options: {
 			checkValidNotifier?: boolean;
 		},
