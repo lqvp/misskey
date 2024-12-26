@@ -2469,7 +2469,7 @@ _notification:
   flushNotification: "Clear notifications"
   exportOfXCompleted: "Export of {x} has been completed"
   login: "Someone logged in"
-  loginDescription: "Logged in from {ip}.\nIf this is an unauthorized device, please log out of all devices through "{text}" for security reasons."
+  loginDescription: "Logged in from {ip}.\nIf this is an unauthorized device, please log out of all devices through “{text}” for security reasons."
   loginFailed: "Login failed."
   loginFailedDescription: "Failed login from {ip}. If a login is being attempted from an IP other than your own, please change your password in the settings for security reasons."
 

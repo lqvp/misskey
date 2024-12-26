@@ -9648,6 +9648,11 @@ export interface Locale extends ILocale {
          */
         "login": string;
         /**
+         * {ip}でログインされました。
+         * 承認されていない機器であれば、セキュリティのために「{text}」を通じてすべての機器でログアウトを行ってください。
+         */
+        "loginDescription": ParameterizedString<"ip" | "text">;
+        /**
          * ログインに失敗しました
          */
         "loginFailed": string;
