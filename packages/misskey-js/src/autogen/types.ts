@@ -4209,7 +4209,6 @@ export type components = {
       reactionAndUserPairCache?: string[];
       clippedCount?: number;
       myReaction?: string | null;
-      /** @default false */
       dontShowOnLtl: boolean;
     };
     NoteReaction: {
