@@ -200,28 +200,52 @@ export class UserFollowingService implements OnModuleInit {
 					},
 				});
 
-				if (isFollowed) autoAccept = true;
+				if (isFollowed) {
+					autoAccept = true;
 
-				// フォローリクエストを承認された側（送信者）の履歴
-				if (this.userEntityService.isLocalUser(follower)) {
-					await this.followRequestHistoryRepository.insert({
-						id: this.idService.gen(),
-						type: 'wasApproved',
-						fromUserId: follower.id,
-						toUserId: followee.id,
-						timestamp: new Date(),
-					});
-				}
+					// フォローリクエストを送った側（送信者）の履歴
+					if (this.userEntityService.isLocalUser(follower)) {
+						await this.followRequestHistoryRepository.insert({
+							id: this.idService.gen(),
+							type: 'sent',
+							fromUserId: follower.id,
+							toUserId: followee.id,
+							timestamp: new Date(),
+						});
+					}
 
-				// フォローリクエストを承認した側（受信者）の履歴
-				if (this.userEntityService.isLocalUser(followee)) {
-					await this.followRequestHistoryRepository.insert({
-						id: this.idService.gen(),
-						type: 'approved',
-						fromUserId: follower.id,
-						toUserId: followee.id,
-						timestamp: new Date(),
-					});
+					// フォローリクエストを受け取った側（受信者）の履歴
+					if (this.userEntityService.isLocalUser(followee)) {
+						await this.followRequestHistoryRepository.insert({
+							id: this.idService.gen(),
+							type: 'received',
+							fromUserId: follower.id,
+							toUserId: followee.id,
+							timestamp: new Date(),
+						});
+					}
+
+					// フォローリクエストを承認された側（送信者）の履歴
+					if (this.userEntityService.isLocalUser(follower)) {
+						await this.followRequestHistoryRepository.insert({
+							id: this.idService.gen(),
+							type: 'wasApproved',
+							fromUserId: follower.id,
+							toUserId: followee.id,
+							timestamp: new Date(),
+						});
+					}
+
+					// フォローリクエストを承認した側（受信者）の履歴
+					if (this.userEntityService.isLocalUser(followee)) {
+						await this.followRequestHistoryRepository.insert({
+							id: this.idService.gen(),
+							type: 'approved',
+							fromUserId: follower.id,
+							toUserId: followee.id,
+							timestamp: new Date(),
+						});
+					}
 				}
 			}
 
