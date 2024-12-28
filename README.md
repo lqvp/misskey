@@ -46,7 +46,7 @@
 - えもえもローディング画面 https://github.com/team-shahu/misskey/pull/55
 - セミパブリックモードの追加 https://github.com/team-shahu/misskey/pull/57 https://github.com/team-shahu/misskey/pull/60 https://github.com/team-shahu/misskey/pull/62 https://github.com/team-shahu/misskey/pull/63
 - ログイン通知周りの改良 https://github.com/team-shahu/misskey/pull/59
-- 絵文字ライセンスをAPに追加 https://github.com/team-shahu/misskey/pull/63
+- 絵文字ライセンスをAPに追加 https://github.com/team-shahu/misskey/pull/64
 ## Special Thanks
 - [Misskey](https://github.com/misskey-dev/misskey)  
 - [にる村](https://github.com/n1lsqn/misskey)  
