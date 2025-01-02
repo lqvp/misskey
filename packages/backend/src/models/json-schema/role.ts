@@ -296,6 +296,10 @@ export const packedRolePoliciesSchema = {
 			type: 'integer',
 			optional: false, nullable: false,
 		},
+		canReadFollowHistory: {
+			type: 'boolean',
+			optional: false, nullable: false,
+		},
 	},
 } as const;
 
