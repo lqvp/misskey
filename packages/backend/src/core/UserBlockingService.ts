@@ -20,6 +20,7 @@ import { UserWebhookService } from '@/core/UserWebhookService.js';
 import { bindThis } from '@/decorators.js';
 import { CacheService } from '@/core/CacheService.js';
 import { UserFollowingService } from '@/core/UserFollowingService.js';
+import { RoleService } from '@/core/RoleService.js';
 
 @Injectable()
 export class UserBlockingService implements OnModuleInit {
@@ -52,6 +53,7 @@ export class UserBlockingService implements OnModuleInit {
 		private webhookService: UserWebhookService,
 		private apRendererService: ApRendererService,
 		private loggerService: LoggerService,
+		private roleService: RoleService,
 	) {
 		this.logger = this.loggerService.getLogger('user-block');
 	}

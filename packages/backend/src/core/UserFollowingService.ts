@@ -29,6 +29,7 @@ import { AccountMoveService } from '@/core/AccountMoveService.js';
 import { UtilityService } from '@/core/UtilityService.js';
 import type { ThinUser } from '@/queue/types.js';
 import Logger from '../logger.js';
+import { RoleService } from '@/core/RoleService.js';
 
 const logger = new Logger('following/create');
 
@@ -92,6 +93,7 @@ export class UserFollowingService implements OnModuleInit {
 		private accountMoveService: AccountMoveService,
 		private perUserFollowingChart: PerUserFollowingChart,
 		private instanceChart: InstanceChart,
+		private roleService: RoleService,
 	) {
 	}
 
