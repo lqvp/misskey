@@ -19,10 +19,14 @@ export type RangeStream = {
 /**
  * Range リクエストに対応したストリームを作成する
  */
-export function createRangeStream(rangeHeader: string, size: number, path: string): RangeStream {
+export function createRangeStream(rangeHeader: string, size: number, path: string): RangeStream | null {
 	const parts = rangeHeader.replace(/bytes=/, '').split('-');
+	if (parts.length > 2) return null;
 	const start = parseInt(parts[0], 10);
 	let end = parts[1] ? parseInt(parts[1], 10) : size - 1;
+	// 不正な値（NaN・負数・逆転）やファイル末尾超過はレンジ外として扱う
+	if (Number.isNaN(start) || Number.isNaN(end)) return null;
+	if (start < 0 || end < 0 || start > end || start >= size) return null;
 	if (end > size) {
 		end = size - 1;
 	}
@@ -69,11 +73,15 @@ export function handleRangeRequest(
 ): fs.ReadStream {
 	reply.header('Accept-Ranges', 'bytes');
 	if (rangeHeader && size > 0) {
-		const { stream, start, end, chunksize } = createRangeStream(rangeHeader, size, path);
-		reply.header('Content-Range', `bytes ${start}-${end}/${size}`);
-		reply.header('Content-Length', chunksize);
-		reply.code(206);
-		return stream;
+		const range = createRangeStream(rangeHeader, size, path);
+		// 不正なRangeヘッダーはレンジ未対応としてレスポンスする
+		if (range != null) {
+			const { stream, start, end, chunksize } = range;
+			reply.header('Content-Range', `bytes ${start}-${end}/${size}`);
+			reply.header('Content-Length', chunksize);
+			reply.code(206);
+			return stream;
+		}
 	}
 	reply.header('Content-Length', size);
 	return fs.createReadStream(path);
