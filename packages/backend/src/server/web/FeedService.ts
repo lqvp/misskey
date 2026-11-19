@@ -90,7 +90,10 @@ export class FeedService {
 			let mentionedRemoteUsers: { uri: string; url?: string | undefined; username: string; host: string; }[] = [];
 			if (note.mentionedRemoteUsers != null) {
 				try {
-					mentionedRemoteUsers = JSON.parse(note.mentionedRemoteUsers);
+					const parsed = JSON.parse(note.mentionedRemoteUsers);
+					if (Array.isArray(parsed)) {
+						mentionedRemoteUsers = parsed;
+					}
 				} catch {
 					// パース失敗時はメンションなしとして扱う
 				}
