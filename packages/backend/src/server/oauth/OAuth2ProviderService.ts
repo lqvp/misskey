@@ -690,7 +690,8 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 					await this.#revokeGrantCode(granted, code);
 					throw new InvalidGrantError('grant request is invalid');
 				}
-				granted.used = true;
+				// 検証に失敗したコードの再使用を許すため、used フラグは検証成功後に立てる
+				// （clientId/redirect_uri/PKCE の検証前に立てると、タイポ一回でコードが無効化される）
 
 				// https://datatracker.ietf.org/doc/html/rfc6749.html#section-4.1.3
 				if (clientId !== granted.clientId || redirectUriValue !== granted.redirectUri) {
@@ -706,6 +707,8 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 				if (!challengeResult) {
 					throw new InvalidGrantError('grant request is invalid');
 				}
+
+				granted.used = true;
 
 				const accessToken = secureRndstr(128);
 				const now = new Date();
