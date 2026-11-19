@@ -15,6 +15,11 @@ export const meta = {
 
 	requireCredential: false,
 
+	limit: {
+		duration: 60 * 60 * 1000,
+		max: 30,
+	},
+
 	description: 'Complete the password reset that was previously requested.',
 
 	errors: {
