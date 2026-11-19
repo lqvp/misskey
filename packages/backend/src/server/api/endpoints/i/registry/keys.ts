@@ -22,7 +22,7 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
-		scope: { type: 'array', default: [], items: {
+		scope: { type: 'array', default: [], maxItems: 16, items: {
 			type: 'string', pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
 		} },
 		domain: { type: 'string', nullable: true },
