@@ -155,6 +155,10 @@ export class Resolver {
 			case 'notes':
 				return this.notesRepository.findOneByOrFail({ id: parsed.id })
 					.then(async note => {
+						// ダイレクトノートはURIを知っている任意のサーバーに内容を渡さない
+						if (note.visibility === 'specified') {
+							throw new IdentifiableError('0dc86cf6-7cd6-4e56-b1e6-5903d62d7ea5', `cannot resolve specified note: ${note.id}`);
+						}
 						if (parsed.rest === 'activity') {
 							// this refers to the create activity and not the note itself
 							return this.apRendererService.addContext(this.apRendererService.renderCreate(await this.apRendererService.renderNote(note), note));
