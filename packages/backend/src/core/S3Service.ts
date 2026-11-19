@@ -39,9 +39,9 @@ export class S3Service {
 		if (this.cachedClient?.key === cacheKey) {
 			return this.cachedClient.client;
 		}
-		if (this.cachedClient != null) {
-			this.cachedClient.client.destroy();
-		}
+		// NodeHttpHandler は HttpRequestService と共有の agent を使うため、
+		// 旧クライアントを destroy すると共有agentまで破棄され得る。ここでは参照を差し替えるのみとする
+		
 
 		const u = meta.objectStorageEndpoint
 			? `${meta.objectStorageUseSSL ? 'https' : 'http'}://${meta.objectStorageEndpoint}`
