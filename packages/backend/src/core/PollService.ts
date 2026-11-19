@@ -5,6 +5,7 @@
 
 import { Inject, Injectable } from '@nestjs/common';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import type { NotesRepository, UsersRepository, PollsRepository, PollVotesRepository, MiUser } from '@/models/_.js';
 import type { MiNote } from '@/models/Note.js';
 import { RelayService } from '@/core/RelayService.js';
@@ -72,12 +73,32 @@ export class PollService {
 			throw new Error('already voted');
 		}
 
-		await this.pollVotesRepository.insert({
-			id: this.idService.gen(),
-			noteId: note.id,
-			userId: user.id,
-			choice: choice,
-		});
+		const insertedVoteId = this.idService.gen();
+		try {
+			await this.pollVotesRepository.insert({
+				id: insertedVoteId,
+				noteId: note.id,
+				userId: user.id,
+				choice: choice,
+			});
+		} catch (err) {
+			// (userId, noteId, choice) のユニーク制約違反＝並行リクエストで同じ投票が先に確定した場合
+			if (isDuplicateKeyValueError(err)) throw new Error('already voted');
+			throw err;
+		}
+
+		if (!poll.multiple) {
+			// 単一選択には (userId, noteId) のユニーク制約が無いため、
+			// 並行して別の選択肢の投票が確定していた場合はこちらの投票を取り消す
+			const other = await this.pollVotesRepository.findOneBy({
+				noteId: note.id,
+				userId: user.id,
+			});
+			if (other != null && other.id !== insertedVoteId) {
+				await this.pollVotesRepository.delete({ id: insertedVoteId });
+				throw new Error('already voted');
+			}
+		}
 
 		// Increment votes count
 		const index = choice + 1; // In SQL, array index is 1 based
