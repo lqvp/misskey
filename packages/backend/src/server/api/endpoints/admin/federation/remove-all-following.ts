@@ -37,16 +37,31 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private queueService: QueueService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const followings = await this.followingsRepository.findBy({
-				followerHost: ps.host,
-			});
+			// ユーザー削除済み等で解決できないフォロー関係があっても処理を続行する
+			const CHUNK_SIZE = 100;
+			while (true) {
+				const followings = await this.followingsRepository.find({
+					where: { followerHost: ps.host },
+					take: CHUNK_SIZE,
+				});
+				if (followings.length === 0) break;
 
-			const pairs = await Promise.all(followings.map(f => Promise.all([
-				this.usersRepository.findOneByOrFail({ id: f.followerId }),
-				this.usersRepository.findOneByOrFail({ id: f.followeeId }),
-			]).then(([from, to]) => [{ id: from.id }, { id: to.id }])));
+				const pairs = [];
+				for (const f of followings) {
+					// ユーザーが取得できなかったフォロー関係はスキップする（NotFoundで全体を失敗させない）
+					const [from, to] = await Promise.all([
+						this.usersRepository.findOneBy({ id: f.followerId }),
+						this.usersRepository.findOneBy({ id: f.followeeId }),
+					]);
+					if (from != null && to != null) {
+						pairs.push({ from: { id: from.id }, to: { id: to.id }, silent: true });
+					}
+				}
 
-			this.queueService.createUnfollowJob(pairs.map(p => ({ from: p[0], to: p[1], silent: true })));
+				if (pairs.length > 0) {
+					await this.queueService.createUnfollowJob(pairs);
+				}
+			}
 		});
 	}
 }

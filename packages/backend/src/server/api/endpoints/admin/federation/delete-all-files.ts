@@ -34,12 +34,18 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private driveService: DriveService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const files = await this.driveFilesRepository.findBy({
-				userHost: ps.host,
-			});
+			// 一括で全件メモリロードすると大規模ホストでOOMするため、ページング処理する
+			const CHUNK_SIZE = 100;
+			while (true) {
+				const files = await this.driveFilesRepository.find({
+					where: { userHost: ps.host },
+					take: CHUNK_SIZE,
+				});
+				if (files.length === 0) break;
 
-			for (const file of files) {
-				this.driveService.deleteFile(file);
+				for (const file of files) {
+					await this.driveService.deleteFile(file);
+				}
 			}
 		});
 	}
