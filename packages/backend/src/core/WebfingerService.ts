@@ -47,7 +47,10 @@ export class WebfingerService {
 		if (m) {
 			const hostname = m[2];
 			const useHttp = process.env.MISSKEY_WEBFINGER_USE_HTTP && process.env.MISSKEY_WEBFINGER_USE_HTTP.toLowerCase() === 'true';
-			return `http${useHttp ? '' : 's'}://${hostname}/.well-known/webfinger?${urlQuery({ resource: `acct:${query}` })}`;
+			// hostname部にURLとして意味を持つ文字（@、/、? など）が混入した場合の
+			// 意図しないURL生成を防ぐため、一度パースして正規化する
+			const u = new URL(`http${useHttp ? '' : 's'}://${hostname}/`);
+			return `${u.protocol}//${u.host}/.well-known/webfinger?${urlQuery({ resource: `acct:${query}` })}`;
 		}
 
 		throw new Error(`Invalid query (${query})`);
