@@ -50,8 +50,8 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
-		url: { type: 'string' },
-		hash: { type: 'string' },
+		url: { type: 'string', maxLength: 8192 },
+		hash: { type: 'string', maxLength: 128 },
 	},
 	required: ['url', 'hash'],
 } as const;
