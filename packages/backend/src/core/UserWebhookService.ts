@@ -37,6 +37,7 @@ export class UserWebhookService implements OnApplicationShutdown {
 		private redisForSub: Redis.Redis,
 		private loggerService: LoggerService,
 
+		@Inject(DI.webhooksRepository)
 		private webhooksRepository: WebhooksRepository,
 		private queueService: QueueService,
 	) {
