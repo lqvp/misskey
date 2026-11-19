@@ -32,13 +32,17 @@ export class VideoProcessingService {
 		try {
 			await new Promise((res, rej) => {
 				// 壊れた動画や劣悪な環境でffmpegが完了しないままワーカーを占有するのを防ぐため、タイムアウトを設ける
+				const command = FFmpeg({
+					source,
+				});
+
 				const timer = setTimeout(() => {
+					// ffmpegが完了しないまま残り続けるのを防ぐため、タイムアウト時にプロセスをkillする
+					command.kill('SIGKILL');
 					rej(new Error(`ffmpeg timed out after ${VIDEO_THUMBNAIL_TIMEOUT_MS}ms`));
 				}, VIDEO_THUMBNAIL_TIMEOUT_MS);
 
-				FFmpeg({
-					source,
-				})
+				command
 					.on('end', () => {
 						clearTimeout(timer);
 						res(undefined);
