@@ -37,17 +37,17 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private queueService: QueueService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			// ユーザー削除済み等で解決できないフォロー関係があっても処理を続行する
-			const CHUNK_SIZE = 100;
-			while (true) {
-				const followings = await this.followingsRepository.find({
-					where: { followerHost: ps.host },
-					take: CHUNK_SIZE,
-				});
-				if (followings.length === 0) break;
+			// IDのみを取得してからチャンク処理する（ジョブ処理待ちの行を再取得して無限ループしないように）
+			const followings = await this.followingsRepository.find({
+				where: { followerHost: ps.host },
+				select: { followerId: true, followeeId: true },
+			});
 
+			const CHUNK_SIZE = 100;
+			for (let i = 0; i < followings.length; i += CHUNK_SIZE) {
+				const chunk = followings.slice(i, i + CHUNK_SIZE);
 				const pairs = [];
-				for (const f of followings) {
+				for (const f of chunk) {
 					// ユーザーが取得できなかったフォロー関係はスキップする（NotFoundで全体を失敗させない）
 					const [from, to] = await Promise.all([
 						this.usersRepository.findOneBy({ id: f.followerId }),
