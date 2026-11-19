@@ -159,12 +159,14 @@ export class ApiServerService {
 
 		fastify.post<{ Params: { session: string; } }>('/miauth/:session/check', async (request, reply) => {
 			// トークンがそのまま返るエンドポイントのため、ブルートフォース対策としてIP単位のレートリミットを設ける
-			const rateLimit = await this.rateLimiterService.limit({ key: 'miauthSessionCheck', duration: 60 * 1000, max: 100 }, getIpHash(request.ip));
-			if (rateLimit != null) {
-				reply.code(429);
-				return {
-					ok: false,
-				};
+			if (this.config.enableIpRateLimit) {
+				const rateLimit = await this.rateLimiterService.limit({ key: 'miauthSessionCheck', duration: 60 * 1000, max: 100 }, getIpHash(request.ip));
+				if (rateLimit != null) {
+					reply.code(429);
+					return {
+						ok: false,
+					};
+				}
 			}
 
 			const token = await this.accessTokensRepository.findOneBy({
