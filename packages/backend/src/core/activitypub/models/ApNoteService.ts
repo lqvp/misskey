@@ -386,7 +386,9 @@ export class ApNoteService {
 		// eslint-disable-next-line no-param-reassign
 		host = this.utilityService.toPuny(host);
 
-		const eomjiTags = toArray(tags).filter(isEmoji);
+		const eomjiTags = toArray(tags).filter(isEmoji)
+			// バリデーションなしのURLがemojiとして登録されるのを防ぐため、http(s)以外のURLを持つものを除外する
+			.filter(tag => checkHttps(tag.icon.url));
 
 		const existingEmojis = await this.emojisRepository.findBy({
 			host,
