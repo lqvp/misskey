@@ -62,6 +62,21 @@ export class UserBlockingService implements OnModuleInit {
 
 	@bindThis
 	public async block(blocker: MiUser, blockee: MiUser, silent = false) {
+		const blocking = {
+			id: this.idService.gen(),
+			blocker,
+			blockerId: blocker.id,
+			blockee,
+			blockeeId: blockee.id,
+		} as MiBlocking;
+
+		// 既にブロック済みか確認し、二重ブロック時のユニーク制約違反で
+		// フォロー解除などの前処理だけが実行された状態にならないようにする
+		const exist = await this.blockingsRepository.existsBy({ blockerId: blocker.id, blockeeId: blockee.id });
+		if (exist) return;
+
+		await this.blockingsRepository.insert(blocking);
+
 		await Promise.all([
 			this.cancelRequest(blocker, blockee, silent),
 			this.cancelRequest(blockee, blocker, silent),
@@ -72,16 +87,6 @@ export class UserBlockingService implements OnModuleInit {
 			this.removeRoomInvitations(blocker, blockee),
 			this.removeRoomInvitations(blockee, blocker),
 		]);
-
-		const blocking = {
-			id: this.idService.gen(),
-			blocker,
-			blockerId: blocker.id,
-			blockee,
-			blockeeId: blockee.id,
-		} as MiBlocking;
-
-		await this.blockingsRepository.insert(blocking);
 
 		this.cacheService.userBlockingCache.refresh(blocker.id);
 		this.cacheService.userBlockedCache.refresh(blockee.id);
