@@ -170,6 +170,11 @@ window.fetch(`/url?url=${encodeURIComponent(requestUrl.href)}&lang=${versatileLa
 		unknownUrl.value = false;
 
 		summalyResult.value = info;
+	})
+	.catch(() => {
+		// ネットワークエラー等で失敗した場合もローディング状態を解除する
+		fetching.value = false;
+		unknownUrl.value = true;
 	});
 
 function adjustTweetHeight(message: MessageEvent) {
