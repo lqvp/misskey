@@ -33,7 +33,15 @@ export class WebfingerService {
 	public async webfinger(query: string): Promise<IWebFinger> {
 		const url = this.genUrl(query);
 
-		return await this.httpRequestService.getJson<IWebFinger>(url, 'application/jrd+json, application/json');
+		const finger = await this.httpRequestService.getJson<IWebFinger>(url, 'application/jrd+json, application/json');
+
+		// RFC 7033 では subject は要求したリソースと一致することが求められる。
+		// 悪意あるサーバーが要求と異なるリソースの情報を返すケースを拒否する
+		if (finger.subject.toLowerCase() !== query.toLowerCase()) {
+			throw new Error(`Unexpected subject: ${finger.subject}`);
+		}
+
+		return finger;
 	}
 
 	@bindThis
