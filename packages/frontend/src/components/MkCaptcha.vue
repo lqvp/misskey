@@ -237,7 +237,11 @@ onMounted(() => {
 		window.addEventListener('message', onReceivedMessage);
 		requestRender();
 	} else {
-		watch(available, requestRender);
+		// available が後から true になるパスでも message リスナーを登録する
+		watch(available, () => {
+			window.addEventListener('message', onReceivedMessage);
+			requestRender();
+		});
 	}
 });
 
