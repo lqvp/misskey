@@ -13,6 +13,7 @@ import type { Config } from '@/config.js';
 import type Logger from '@/logger.js';
 import type { MiMeta, UserProfilesRepository } from '@/models/_.js';
 import { LoggerService } from '@/core/LoggerService.js';
+import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
 import { HttpRequestService } from '@/core/HttpRequestService.js';
 import { escapeHtml } from '@/misc/escape-html.js';
@@ -198,7 +199,12 @@ export class EmailService {
 					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
 				} catch (err) {
 					// API障害時にサインアップを妨げないよう、検証をスキップする
-					this.logger.warn(`verifymail.io request failed: ${err instanceof Error ? err.message : err}`);
+					// なお、認証キー不正など設定起因のエラーは fail-open になり得るため error レベルで通知する
+					if (err instanceof StatusError && err.statusCode >= 400 && err.statusCode < 500) {
+						this.logger.error(`verifymail.io request failed (possibly misconfigured): ${err.message}`);
+					} else {
+						this.logger.warn(`verifymail.io request failed: ${err instanceof Error ? err.message : err}`);
+					}
 				}
 			} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
 				validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
@@ -375,7 +381,12 @@ export class EmailService {
 			};
 		} catch (err) {
 			// 通信エラー時に正当なユーザーを拒否しないよう、検証をスキップする
-			this.logger.warn(`truemail request failed: ${err instanceof Error ? err.message : err}`);
+			// なお、認証キー不正など設定起因のエラーは fail-open になり得るため error レベルで通知する
+			if (err instanceof StatusError && err.statusCode >= 400 && err.statusCode < 500) {
+				this.logger.error(`truemail request failed (possibly misconfigured): ${err.message}`);
+			} else {
+				this.logger.warn(`truemail request failed: ${err instanceof Error ? err.message : err}`);
+			}
 			return {
 				valid: true,
 				reason: null,
