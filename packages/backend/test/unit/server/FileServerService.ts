@@ -22,6 +22,7 @@ import { LoggerService } from '@/core/LoggerService.js';
 import { VideoProcessingService } from '@/core/VideoProcessingService.js';
 import { loadConfig, type Config } from '@/config.js';
 import { MiDriveFile } from '@/models/DriveFile.js';
+import { RateLimiterService } from '@/server/api/RateLimiterService.js';
 import { FileServerService } from '@/server/FileServerService.js';
 import { FileServerFileResolver } from '@/server/file/FileServerFileResolver.js';
 
@@ -149,6 +150,9 @@ describe('FileServerService', () => {
 		driveFilesRepository = db.getRepository(MiDriveFile);
 
 		const loggerService = new LoggerService();
+		const rateLimiterService = {
+			limit: async () => null,
+		} as unknown as RateLimiterService;
 		const sensitiveMediaDetectionService = {
 			detectSensitive: async () => null,
 			detectSensitiveMany: async (sources: Buffer[]) => sources.map(() => null),
@@ -170,6 +174,7 @@ describe('FileServerService', () => {
 			videoProcessingService,
 			internalStorageService,
 			loggerService,
+			rateLimiterService,
 		);
 
 		fastify = Fastify();
@@ -194,6 +199,7 @@ describe('FileServerService', () => {
 			videoProcessingService,
 			internalStorageService,
 			loggerService,
+			rateLimiterService,
 		);
 		externalFastify = Fastify();
 		await externalFastify.register(fastifyStatic, {
