@@ -46,9 +46,13 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private driveFileEntityService: DriveFileEntityService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const files = await this.driveFilesRepository.findBy({
-				md5: ps.md5,
-				userId: me.id,
+			const files = await this.driveFilesRepository.find({
+				where: {
+					md5: ps.md5,
+					userId: me.id,
+				},
+				// 同一md5のファイルを大量に保持するユーザーがいる場合に備えて件数を制限する
+				take: 100,
 			});
 
 			return await this.driveFileEntityService.packMany(files, { self: true });
