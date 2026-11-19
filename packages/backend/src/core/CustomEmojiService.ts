@@ -217,12 +217,11 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			id: In(ids),
 		});
 
-		for (const emoji of emojis) {
-			await this.emojisRepository.update(emoji.id, {
-				updatedAt: new Date(),
-				aliases: [...new Set(emoji.aliases.concat(aliases))],
-			});
-		}
+		// 1件ずつUPDATEすると絵文字数分のラウンドトリップが発生するため、並列化する
+		await Promise.all(emojis.map(emoji => this.emojisRepository.update(emoji.id, {
+			updatedAt: new Date(),
+			aliases: [...new Set(emoji.aliases.concat(aliases))],
+		})));
 
 		this.localEmojisCache.refresh();
 
@@ -253,12 +252,11 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			id: In(ids),
 		});
 
-		for (const emoji of emojis) {
-			await this.emojisRepository.update(emoji.id, {
-				updatedAt: new Date(),
-				aliases: emoji.aliases.filter(x => !aliases.includes(x)),
-			});
-		}
+		// 1件ずつUPDATEすると絵文字数分のラウンドトリップが発生するため、並列化する
+		await Promise.all(emojis.map(emoji => this.emojisRepository.update(emoji.id, {
+			updatedAt: new Date(),
+			aliases: emoji.aliases.filter(x => !aliases.includes(x)),
+		})));
 
 		this.localEmojisCache.refresh();
 
@@ -325,10 +323,10 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			id: In(ids),
 		});
 
-		for (const emoji of emojis) {
-			await this.emojisRepository.delete(emoji.id);
+		await this.emojisRepository.delete({ id: In(emojis.map(emoji => emoji.id)) });
 
-			if (moderator) {
+		if (moderator) {
+			for (const emoji of emojis) {
 				this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
 					emojiId: emoji.id,
 					emoji: emoji,
