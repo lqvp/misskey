@@ -50,7 +50,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 	) {
 		super(meta, paramDef, async (ps, me) => {
 			const query = this.queryService.makePaginationQuery(this.usersRepository.createQueryBuilder('user'), ps.sinceId, ps.untilId, ps.sinceDate, ps.untilDate)
-				.andWhere('user.host = :host', { host: ps.host });
+				.andWhere('user.host = :host', { host: ps.host })
+				// users/show と同様に、凍結されたユーザーは一覧に表示しない
+				.andWhere('user.isSuspended = false');
 
 			const users = await query
 				.limit(ps.limit)
