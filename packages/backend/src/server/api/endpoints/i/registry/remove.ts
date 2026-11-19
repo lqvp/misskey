@@ -27,7 +27,7 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		key: { type: 'string' },
-		scope: { type: 'array', default: [], maxItems: 16, items: {
+		scope: { type: 'array', default: [], maxItems: 100, items: {
 			type: 'string', pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
 		} },
 		domain: { type: 'string', nullable: true },
