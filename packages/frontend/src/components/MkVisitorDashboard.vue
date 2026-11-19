@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			</h1>
 			<div :class="$style.mainAbout">
 				<!-- eslint-disable-next-line vue/no-v-html -->
-				<div v-html="instance.description || i18n.ts.headlineMisskey"></div>
+				<div v-html="sanitizeServerHtml(instance.description || i18n.ts.headlineMisskey)"></div>
 			</div>
 			<div v-if="instance.disableRegistration || instance.federation !== 'all'" :class="$style.mainWarn" class="_gaps_s">
 				<MkInfo v-if="instance.disableRegistration" warn>{{ i18n.ts.invitationRequiredToRegister }}</MkInfo>
@@ -63,6 +63,7 @@ import * as os from '@/os.js';
 import { misskeyApi } from '@/utility/misskey-api.js';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
+import { sanitizeServerHtml } from '@/utility/sanitize-server-html.js';
 import MkNumber from '@/components/MkNumber.vue';
 import { openInstanceMenu } from '@/ui/_common_/common.js';
 
