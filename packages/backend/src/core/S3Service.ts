@@ -41,7 +41,6 @@ export class S3Service {
 		}
 		// NodeHttpHandler は HttpRequestService と共有の agent を使うため、
 		// 旧クライアントを destroy すると共有agentまで破棄され得る。ここでは参照を差し替えるのみとする
-		
 
 		const u = meta.objectStorageEndpoint
 			? `${meta.objectStorageUseSSL ? 'https' : 'http'}://${meta.objectStorageEndpoint}`
