@@ -22,6 +22,7 @@ import type { MiDriveFile } from './DriveFile.js';
 // Not appending `{ concurrent: true }` to `@Index` will not cause any problem in production,
 
 @Index(['userId', 'id']) // Note: this index is ("userId", "id" DESC) in production, but not in test.
+@Index('IDX_NOTE_USER_ID_CHANNEL_ID', ['userId', 'channelId'])
 @Entity('note')
 export class MiNote {
 	@PrimaryColumn(id())
