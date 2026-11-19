@@ -44,6 +44,8 @@ type PrivateKey = {
 
 // リダイレクトの追従上限
 const MAX_REDIRECTS = 5;
+// リクエストのタイムアウト (リダイレクト全体で共有)
+const REQUEST_TIMEOUT = 5000;
 
 export class ApRequestCreator {
 	static async createSignedPost(args: { key: PrivateKey, url: string, body: string, digest?: string, additionalHeaders: Record<string, string> }): Promise<Signed> {
@@ -173,25 +175,44 @@ export class ApRequestService {
 		// リダイレクト先に向けて同じSignatureヘッダを再送すると、
 		// (request-target)やhostが签名対象と乖離し、署名の意味を失う(場合によっては署名の漏洩にもなる)ため、
 		// リダイレクト時は手動で追従してリクエストごとに再署名する
+		// なお、タイムアウトはリダイレクト全体で共有する
 		let currentUrl = url;
+		let currentMethod: 'POST' | 'GET' = 'POST';
+		const deadline = Date.now() + REQUEST_TIMEOUT;
 		for (let redirectCount = 0; ; redirectCount++) {
-			const req = await ApRequestCreator.createSignedPost({
-				key: {
-					privateKeyPem: keypair.privateKey,
-					keyId: `${this.config.url}/users/${user.id}#main-key`,
-				},
-				url: currentUrl,
-				body,
-				digest,
-				additionalHeaders: {
-				},
-			});
+			const req = currentMethod === 'POST'
+				? await ApRequestCreator.createSignedPost({
+					key: {
+						privateKeyPem: keypair.privateKey,
+						keyId: `${this.config.url}/users/${user.id}#main-key`,
+					},
+					url: currentUrl,
+					body,
+					digest,
+					additionalHeaders: {
+					},
+				})
+				: await ApRequestCreator.createSignedGet({
+					key: {
+						privateKeyPem: keypair.privateKey,
+						keyId: `${this.config.url}/users/${user.id}#main-key`,
+					},
+					url: currentUrl,
+					additionalHeaders: {
+					},
+				});
+
+			const remaining = deadline - Date.now();
+			if (remaining <= 0) {
+				throw new Error('request timeout');
+			}
 
 			const res = await this.httpRequestService.send(currentUrl, {
 				method: req.request.method,
 				headers: req.request.headers,
-				body,
+				...(currentMethod === 'POST' ? { body } : {}),
 				redirect: 'manual',
+				timeout: remaining,
 			}, {
 				throwErrorWhenResponseNotOk: false,
 			});
@@ -201,6 +222,10 @@ export class ApRequestService {
 				if (location != null) {
 					if (redirectCount >= MAX_REDIRECTS) {
 						throw new Error('too many redirects');
+					}
+					// 303 See Other は GET で追従する
+					if (res.status === 303) {
+						currentMethod = 'GET';
 					}
 					currentUrl = new URL(location, currentUrl).href;
 					continue;
@@ -230,6 +255,8 @@ export class ApRequestService {
 		// リダイレクト時は手動で追従してリクエストごとに再署名する
 		let currentUrl = url;
 		let res!: Response;
+		// タイムアウトはリダイレクト全体で共有する
+		const deadline = Date.now() + REQUEST_TIMEOUT;
 		for (let redirectCount = 0; ; redirectCount++) {
 			const req = await ApRequestCreator.createSignedGet({
 				key: {
@@ -241,10 +268,16 @@ export class ApRequestService {
 				},
 			});
 
+			const remaining = deadline - Date.now();
+			if (remaining <= 0) {
+				throw new Error('request timeout');
+			}
+
 			res = await this.httpRequestService.send(currentUrl, {
 				method: req.request.method,
 				headers: req.request.headers,
 				redirect: 'manual',
+				timeout: remaining,
 			}, {
 				throwErrorWhenResponseNotOk: false,
 			});
