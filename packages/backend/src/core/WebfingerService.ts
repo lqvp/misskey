@@ -37,7 +37,9 @@ export class WebfingerService {
 
 		// RFC 7033 では subject は要求したリソースと一致することが求められる。
 		// 悪意あるサーバーが要求と異なるリソースの情報を返すケースを拒否する
-		if (finger.subject.toLowerCase() !== query.toLowerCase()) {
+		// なお acct 形式のクエリは acct: プレフィックス付きで要求されるため、期待値にもそれを反映する
+		const expectedResource = query.match(mRegex) ? `acct:${query}` : query;
+		if (finger.subject.toLowerCase() !== expectedResource.toLowerCase()) {
 			throw new Error(`Unexpected subject: ${finger.subject}`);
 		}
 
