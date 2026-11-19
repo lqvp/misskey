@@ -388,7 +388,8 @@ export class ApNoteService {
 
 		const eomjiTags = toArray(tags).filter(isEmoji)
 			// バリデーションなしのURLがemojiとして登録されるのを防ぐため、http(s)以外のURLを持つものを除外する
-			.filter(tag => checkHttps(tag.icon.url));
+			// (icon.urlが非文字列の場合にcheckHttpsが例外を投げないよう、型も確認する)
+			.filter(tag => typeof tag.icon.url === 'string' && checkHttps(tag.icon.url));
 
 		const existingEmojis = await this.emojisRepository.findBy({
 			host,
