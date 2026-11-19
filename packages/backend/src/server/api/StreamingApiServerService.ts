@@ -12,6 +12,7 @@ import type { MiAccessToken } from '@/models/_.js';
 import { bindThis } from '@/decorators.js';
 import type { MiLocalUser } from '@/models/User.js';
 import { UserService } from '@/core/UserService.js';
+import { LoggerService } from '@/core/LoggerService.js';
 import { AuthenticateService, AuthenticationError } from './AuthenticateService.js';
 import MainStreamConnection, { ConnectionRequest } from './stream/Connection.js';
 import type * as http from 'node:http';
@@ -27,6 +28,8 @@ export class StreamingApiServerService {
 	constructor(
 		@Inject(DI.redisForSub)
 		private redisForSub: Redis.Redis,
+
+		private loggerService: LoggerService,
 
 		private moduleRef: ModuleRef,
 		private authenticateService: AuthenticateService,
@@ -104,8 +107,17 @@ export class StreamingApiServerService {
 
 		const globalEv = new EventEmitter();
 
+		const logger = this.loggerService.getLogger('streaming');
+
 		this.redisForSub.on('message', (_: string, data: string) => {
-			const parsed = JSON.parse(data);
+			// Redisに不正な形式のメッセージが流れた場合でもハンドラが落ちないようガードする
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(data);
+			} catch (e) {
+				logger.warn(`failed to parse redis message: ${e instanceof Error ? e.message : e}`);
+				return;
+			}
 			globalEv.emit('message', parsed);
 		});
 
