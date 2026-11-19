@@ -66,6 +66,8 @@ export class EmailService {
 			this.cachedTransporter = {
 				key: transporterCacheKey,
 				transporter: createTransport({
+					// キャッシュして使い回すため、接続プールを有効にする
+					pool: true,
 					host: this.meta.smtpHost ?? undefined,
 					port: this.meta.smtpPort ?? undefined,
 					secure: this.meta.smtpSecure,
