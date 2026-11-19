@@ -43,7 +43,9 @@ type PrivateKey = {
 export class ApRequestCreator {
 	static async createSignedPost(args: { key: PrivateKey, url: string, body: string, digest?: string, additionalHeaders: Record<string, string> }): Promise<Signed> {
 		const u = new URL(args.url);
-		const digestHeader = args.digest ?? this.createDigest(args.body);
+		// ボディとDigestヘッダの不一致を防ぐため、指定の有無にかかわらずボディから計算した値を使う
+		// (キューに保存された古いdigestなどがボディと不一致の場合に、署名の整合性が壊れるのを防ぐ)
+		const digestHeader = this.createDigest(args.body);
 
 		const request: Request = {
 			url: u.href,
