@@ -15,6 +15,7 @@ import { ApRendererService } from '@/core/activitypub/ApRendererService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
 import { DI } from '@/di-symbols.js';
 import { UserBlockingService } from '@/core/UserBlockingService.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { ApiError } from '../../../error.js';
 
@@ -151,12 +152,32 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// Create vote
-			const vote = await this.pollVotesRepository.insertOne({
-				id: this.idService.gen(createdAt.getTime()),
-				noteId: note.id,
-				userId: me.id,
-				choice: ps.choice,
-			});
+			let vote;
+			try {
+				vote = await this.pollVotesRepository.insertOne({
+					id: this.idService.gen(createdAt.getTime()),
+					noteId: note.id,
+					userId: me.id,
+					choice: ps.choice,
+				});
+			} catch (err) {
+				// (userId, noteId, choice) のユニーク制約違反＝並行リクエストで同じ投票が先に確定した場合
+				if (isDuplicateKeyValueError(err)) throw new ApiError(meta.errors.alreadyVoted);
+				throw err;
+			}
+
+			if (!poll.multiple) {
+				// 単一選択には (userId, noteId) のユニーク制約が無いため、
+				// 並行して別の選択肢の投票が確定していた場合はこちらの投票を取り消す
+				const other = await this.pollVotesRepository.findOneBy({
+					noteId: note.id,
+					userId: me.id,
+				});
+				if (other != null && other.id !== vote.id) {
+					await this.pollVotesRepository.delete({ id: vote.id });
+					throw new ApiError(meta.errors.alreadyVoted);
+				}
+			}
 
 			// Increment votes count
 			const index = ps.choice + 1; // In SQL, array index is 1 based
