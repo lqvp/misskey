@@ -5,7 +5,7 @@
 
 import sanitizeHtml from 'sanitize-html';
 
-const allowedTags = ['svg', 'path', 'g', 'rect', 'circle', 'title', 'defs', 'use'];
+const allowedTags = ['svg', 'path', 'g', 'rect', 'circle', 'title', 'defs', 'use', 'image'];
 
 const allowedAttributes: sanitizeHtml.Attributes = {
 	'*': [
@@ -34,6 +34,10 @@ const allowedAttributes: sanitizeHtml.Attributes = {
 		'transform',
 		'opacity',
 		'shape-rendering',
+		// QRページのロゴ画像用
+		'href',
+		'xlink:href',
+		'preserveAspectRatio',
 	],
 };
 
