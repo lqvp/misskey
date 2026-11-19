@@ -703,12 +703,15 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 					throw new InvalidGrantError('grant request is invalid');
 				}
 
+				// 並行するリクエストによる二重トークン発行を防ぐため、検証前にコードを使用済みにする
+				granted.used = true;
+
 				const challengeResult = await verifyChallenge(codeVerifier, granted.codeChallenge);
 				if (!challengeResult) {
+					// PKCE検証の失敗はタイポの可能性があるため、再試行を許可する
+					granted.used = false;
 					throw new InvalidGrantError('grant request is invalid');
 				}
-
-				granted.used = true;
 
 				const accessToken = secureRndstr(128);
 				const now = new Date();
