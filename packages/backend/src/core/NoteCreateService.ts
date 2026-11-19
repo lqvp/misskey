@@ -25,6 +25,7 @@ import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js
 import type { MiChannel } from '@/models/Channel.js';
 import { normalizeTag } from '@/misc/normalize-tag.js';
 import { RelayService } from '@/core/RelayService.js';
+import { LoggerService } from '@/core/LoggerService.js';
 import { FederatedInstanceService } from '@/core/FederatedInstanceService.js';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
@@ -202,6 +203,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		@Inject(DI.meta)
 		private meta: MiMeta,
+
+		private loggerService: LoggerService,
 
 		@Inject(DI.db)
 		private db: DataSource,
@@ -740,7 +743,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 				throw err;
 			}
 
-			console.error(e);
+			// 構造化ログ・集約から外れないようloggerを使う
+			this.loggerService.getLogger('note-create').error(e instanceof Error ? e : new Error(String(e)));
 
 			throw e;
 		}
