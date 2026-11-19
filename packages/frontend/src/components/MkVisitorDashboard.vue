@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			</h1>
 			<div :class="$style.mainAbout">
 				<!-- eslint-disable-next-line vue/no-v-html -->
-				<div v-html="instance.description || i18n.ts.headlineMisskey"></div>
+				<div v-html="sanitizedDescription || i18n.ts.headlineMisskey"></div>
 			</div>
 			<div v-if="instance.disableRegistration || instance.federation !== 'all'" :class="$style.mainWarn" class="_gaps_s">
 				<MkInfo v-if="instance.disableRegistration" warn>{{ i18n.ts.invitationRequiredToRegister }}</MkInfo>
@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent, ref } from 'vue';
+import { defineAsyncComponent, computed, ref } from 'vue';
 import * as Misskey from 'misskey-js';
 import { instanceName } from '@@/js/config.js';
 import MkButton from '@/components/MkButton.vue';
@@ -65,6 +65,9 @@ import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
 import MkNumber from '@/components/MkNumber.vue';
 import { openInstanceMenu } from '@/ui/_common_/common.js';
+import { sanitizeServerProvidedHtml } from '@/utility/sanitize-server-provided-html.js';
+
+const sanitizedDescription = computed(() => sanitizeServerProvidedHtml(instance.description ?? ''));
 
 const XActiveUsersChart = defineAsyncComponent(() => import('@/components/MkVisitorDashboard.ActiveUsersChart.vue'));
 
