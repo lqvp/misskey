@@ -194,7 +194,12 @@ export class EmailService {
 
 		if (this.meta.enableActiveEmailValidation) {
 			if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
-				validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+				try {
+					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+				} catch (err) {
+					// API障害時にサインアップを妨げないよう、検証をスキップする
+					this.logger.warn(`verifymail.io request failed: ${err instanceof Error ? err.message : err}`);
+				}
 			} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
 				validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
 			} else {
@@ -368,10 +373,12 @@ export class EmailService {
 				valid: true,
 				reason: null,
 			};
-		} catch (_) {
+		} catch (err) {
+			// 通信エラー時に正当なユーザーを拒否しないよう、検証をスキップする
+			this.logger.warn(`truemail request failed: ${err instanceof Error ? err.message : err}`);
 			return {
-				valid: false,
-				reason: 'network',
+				valid: true,
+				reason: null,
 			};
 		}
 	}
