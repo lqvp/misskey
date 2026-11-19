@@ -47,6 +47,9 @@ export const apiWithDialog = (<E extends keyof Misskey.Endpoints>(
 ) => {
 	const promise = misskeyApi(endpoint, data, token, signal);
 	promiseDialog(promise, null, async (err) => {
+		// 中断されたリクエストはエラーダイアログを表示しない
+		if (err.name === 'AbortError') return;
+
 		let title: string | undefined;
 		let text = err.message + '\n' + err.id;
 		if (err.code === 'INTERNAL_ERROR') {
