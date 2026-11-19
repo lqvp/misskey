@@ -77,16 +77,21 @@ export class UserBlockingService implements OnModuleInit {
 
 		await this.blockingsRepository.insert(blocking);
 
-		await Promise.all([
-			this.cancelRequest(blocker, blockee, silent),
-			this.cancelRequest(blockee, blocker, silent),
-			this.userFollowingService.unfollow(blocker, blockee, silent),
-			this.userFollowingService.unfollow(blockee, blocker, silent),
-			// ブロックされたことがリアルタイムで伝わってしまうため、クライアントには通知しない
-			this.userListService.removeMemberFromAllLists(blockee, blocker, { notifyClients: false }),
-			this.removeRoomInvitations(blocker, blockee),
-			this.removeRoomInvitations(blockee, blocker),
-		]);
+		try {
+			await Promise.all([
+				this.cancelRequest(blocker, blockee, silent),
+				this.cancelRequest(blockee, blocker, silent),
+				this.userFollowingService.unfollow(blocker, blockee, silent),
+				this.userFollowingService.unfollow(blockee, blocker, silent),
+				// ブロックされたことがリアルタイムで伝わってしまうため、クライアントには通知しない
+				this.userListService.removeMemberFromAllLists(blockee, blocker, { notifyClients: false }),
+				this.removeRoomInvitations(blocker, blockee),
+				this.removeRoomInvitations(blockee, blocker),
+			]);
+		} catch (err) {
+			// 後処理の失敗でキャッシュ更新がスキップされると古い状態が残り続けるため、ログのみで続行する
+			this.logger.error(`failed to cleanup following relationships on block: ${err instanceof Error ? err.message : err}`);
+		}
 
 		this.cacheService.userBlockingCache.refresh(blocker.id);
 		this.cacheService.userBlockedCache.refresh(blockee.id);
