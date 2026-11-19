@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { createTransport } from 'nodemailer';
+import { createTransport, type Transporter } from 'nodemailer';
 import juice from 'juice';
 import sanitizeHtml from 'sanitize-html';
 import { Inject, Injectable } from '@nestjs/common';
@@ -38,6 +38,8 @@ export class EmailService {
 		this.logger = this.loggerService.getLogger('email');
 	}
 
+	private cachedTransporter: { key: string, transporter: Transporter } | null = null;
+
 	@bindThis
 	public async sendEmail(to: string, subject: string, html: string, text: string) {
 		if (!this.meta.enableEmail) return;
@@ -49,17 +51,34 @@ export class EmailService {
 
 		const sanitizedHtml = sanitizeHtml(html);
 
-		const transporter = createTransport({
-			host: this.meta.smtpHost ?? undefined,
-			port: this.meta.smtpPort ?? undefined,
-			secure: this.meta.smtpSecure,
-			ignoreTLS: !enableAuth,
-			proxy: this.config.proxySmtp,
-			auth: enableAuth ? {
-				user: this.meta.smtpUser!,
-				pass: this.meta.smtpPass ?? undefined,
-			} : undefined,
-		});
+		// SMTP設定が変わらない限り、接続プールを持つtransporterを使い回す
+		const transporterCacheKey = JSON.stringify([
+			this.meta.smtpHost,
+			this.meta.smtpPort,
+			this.meta.smtpSecure,
+			enableAuth,
+			this.meta.smtpUser,
+			this.meta.smtpPass,
+			this.config.proxySmtp,
+		]);
+		if (this.cachedTransporter?.key !== transporterCacheKey) {
+			this.cachedTransporter?.transporter.close();
+			this.cachedTransporter = {
+				key: transporterCacheKey,
+				transporter: createTransport({
+					host: this.meta.smtpHost ?? undefined,
+					port: this.meta.smtpPort ?? undefined,
+					secure: this.meta.smtpSecure,
+					ignoreTLS: !enableAuth,
+					proxy: this.config.proxySmtp,
+					auth: enableAuth ? {
+						user: this.meta.smtpUser!,
+						pass: this.meta.smtpPass ?? undefined,
+					} : undefined,
+				}),
+			};
+		}
+		const transporter = this.cachedTransporter.transporter;
 
 		const htmlContent = `<!doctype html>
 <html>
