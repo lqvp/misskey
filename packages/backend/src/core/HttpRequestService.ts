@@ -20,7 +20,7 @@ import { bindThis } from '@/decorators.js';
 import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
 import { assertActivityMatchesUrl, FetchAllowSoftFailMask } from '@/core/activitypub/misc/check-against-url.js';
 import type { IObject } from '@/core/activitypub/type.js';
-import type { BodyInit, Response } from 'node-fetch';
+import type { BodyInit, RequestRedirect, Response } from 'node-fetch';
 import type { URL } from 'node:url';
 
 export type HttpRequestSendOptions = {
@@ -319,6 +319,7 @@ export class HttpRequestService {
 			timeout?: number,
 			size?: number,
 			isLocalAddressAllowed?: boolean,
+			redirect?: RequestRedirect,
 		} = {},
 		extra: HttpRequestSendOptions = {
 			throwErrorWhenResponseNotOk: true,
@@ -342,6 +343,7 @@ export class HttpRequestService {
 			},
 			body: args.body,
 			size: args.size ?? 10 * 1024 * 1024,
+			redirect: args.redirect ?? 'follow',
 			agent: (url) => this.getAgentByUrl(url, false, isLocalAddressAllowed),
 			signal: controller.signal,
 		});
