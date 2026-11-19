@@ -63,7 +63,9 @@ const change = () => {
 	if (images.value.length === 0 || slideA.value == null || slideB.value == null) return;
 
 	const index = Math.floor(Math.random() * images.value.length);
-	const img = `url(${ images.value[index].url })`;
+	// URLに `)` や `"` が含まれる場合のスタイル脱出を防ぐため、クォートしてエスケープする
+	const url = images.value[index].url.replaceAll('"', '%22');
+	const img = `url("${ url }")`;
 
 	slideB.value.style.backgroundImage = img;
 
