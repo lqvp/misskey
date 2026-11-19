@@ -796,21 +796,27 @@ export class NoteCreateService implements OnApplicationShutdown {
 				notify: 'normal',
 			}).then(async followings => {
 				if (note.visibility !== 'specified') {
-					const isPureRenote = this.isRenote(data) && !this.isQuote(data) ? true : false;
-					for (const following of followings) {
+				const isPureRenote = this.isRenote(data) && !this.isQuote(data) ? true : false;
+				// リノートミュート判定はフォロワーごとにキャッシュフェッチが必要なため、並列で一括取得する (直列awaitによる遅延を回避)
+				let renoteMutedFollowerIds: Set<string>;
+				if (isPureRenote) {
+					const results = await Promise.all(followings.map(async following => {
 						// TODO: ワードミュート考慮
-						let isRenoteMuted = false;
-						if (isPureRenote) {
-							const userIdsWhoMeMutingRenotes = await this.cacheService.renoteMutingsCache.fetch(following.followerId);
-							isRenoteMuted = userIdsWhoMeMutingRenotes.has(user.id);
-						}
-						if (!isRenoteMuted) {
-							this.notificationService.createNotification(following.followerId, 'note', {
-								noteId: note.id,
-							}, user.id);
-						}
+						const userIdsWhoMeMutingRenotes = await this.cacheService.renoteMutingsCache.fetch(following.followerId);
+						return userIdsWhoMeMutingRenotes.has(user.id) ? following.followerId : null;
+					}));
+					renoteMutedFollowerIds = new Set(results.filter((id): id is string => id != null));
+				} else {
+					renoteMutedFollowerIds = new Set();
+				}
+				for (const following of followings) {
+					if (!renoteMutedFollowerIds.has(following.followerId)) {
+						this.notificationService.createNotification(following.followerId, 'note', {
+							noteId: note.id,
+						}, user.id);
 					}
 				}
+			}
 			});
 		}
 
