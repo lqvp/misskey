@@ -130,7 +130,7 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		visibility: { type: 'string', enum: ['public', 'home', 'followers', 'specified'], default: 'public' },
-		visibleUserIds: { type: 'array', uniqueItems: true, items: {
+		visibleUserIds: { type: 'array', uniqueItems: true, maxItems: 100, items: {
 			type: 'string', format: 'misskey:id',
 		} },
 		cw: { type: 'string', nullable: true, minLength: 1, maxLength: 100 },

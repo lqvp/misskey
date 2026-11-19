@@ -34,6 +34,7 @@ export const paramDef = {
 		memo: {
 			type: 'string',
 			nullable: true,
+			maxLength: 2048,
 			description: 'A personal memo for the target user. If null or empty, delete the memo.',
 		},
 	},

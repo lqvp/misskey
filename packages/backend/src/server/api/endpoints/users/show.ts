@@ -72,7 +72,7 @@ export const paramDef = {
 				{
 					type: 'object',
 					properties: {
-						userIds: { type: 'array', uniqueItems: true, items: {
+						userIds: { type: 'array', uniqueItems: true, maxItems: 100, items: {
 							type: 'string', format: 'misskey:id',
 						} },
 					},
