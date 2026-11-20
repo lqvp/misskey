@@ -433,9 +433,13 @@ export class ChatService {
 			.select('muting.muteeId')
 			.where('muting.muterId = :muterId', { muterId: meId });
 
-		for (let i = 0; i < limit; i++) {
-			const found = history.map(m => (m.fromUserId === meId) ? m.toUserId! : m.fromUserId!);
+		// Fetch messages in bounded batches with the same ordering/filters as before,
+		// then deduplicate by partner in JS. This replaces the previous one-query-per-
+		// conversation loop (N+1) while keeping identical result semantics.
+		const foundPartners = new Set<MiUser['id']>();
+		let untilId: MiChatMessage['id'] | null = null;
 
+		while (history.length < limit) {
 			const query = this.chatMessagesRepository.createQueryBuilder('message')
 				.orderBy('message.id', 'DESC')
 				.where(new Brackets(qb => {
@@ -445,22 +449,30 @@ export class ChatService {
 				}))
 				.andWhere('message.toRoomId IS NULL')
 				.andWhere(`message.fromUserId NOT IN (${ mutingQuery.getQuery() })`)
-				.andWhere(`message.toUserId NOT IN (${ mutingQuery.getQuery() })`);
+				.andWhere(`message.toUserId NOT IN (${ mutingQuery.getQuery() })`)
+				.setParameters(mutingQuery.getParameters());
 
-			if (found.length > 0) {
-				query.andWhere('message.fromUserId NOT IN (:...found)', { found: found });
-				query.andWhere('message.toUserId NOT IN (:...found)', { found: found });
+			if (untilId != null) {
+				query.andWhere('message.id < :untilId', { untilId });
 			}
 
-			query.setParameters(mutingQuery.getParameters());
+			const messages = await query.take(limit * 4).getMany();
 
-			const message = await query.limit(1).getOne();
+			if (messages.length === 0) break;
 
-			if (message) {
-				history.push(message);
-			} else {
-				break;
+			for (const message of messages) {
+				const partnerId = (message.fromUserId === meId) ? message.toUserId! : message.fromUserId!;
+				if (!foundPartners.has(partnerId)) {
+					foundPartners.add(partnerId);
+					history.push(message);
+					if (history.length >= limit) break;
+				}
 			}
+
+			// Stop if the batch was not full: there are no older messages to fetch.
+			if (messages.length < limit * 4) break;
+
+			untilId = messages[messages.length - 1].id;
 		}
 
 		return history;
@@ -484,26 +496,37 @@ export class ChatService {
 			return [];
 		}
 
+		// Fetch messages in bounded batches and deduplicate by room in JS,
+		// instead of one query per conversation (N+1).
 		const history: MiChatMessage[] = [];
+		const foundRooms = new Set<MiChatRoom['id']>();
+		let untilId: MiChatMessage['id'] | null = null;
 
-		for (let i = 0; i < limit; i++) {
-			const found = history.map(m => m.toRoomId!);
-
+		while (history.length < limit) {
 			const query = this.chatMessagesRepository.createQueryBuilder('message')
 				.orderBy('message.id', 'DESC')
 				.where('message.toRoomId IN (:...roomIds)', { roomIds });
 
-			if (found.length > 0) {
-				query.andWhere('message.toRoomId NOT IN (:...found)', { found: found });
+			if (untilId != null) {
+				query.andWhere('message.id < :untilId', { untilId });
 			}
 
-			const message = await query.limit(1).getOne();
+			const messages = await query.take(limit * 4).getMany();
 
-			if (message) {
-				history.push(message);
-			} else {
-				break;
+			if (messages.length === 0) break;
+
+			for (const message of messages) {
+				if (!foundRooms.has(message.toRoomId!)) {
+					foundRooms.add(message.toRoomId!);
+					history.push(message);
+					if (history.length >= limit) break;
+				}
 			}
+
+			// Stop if the batch was not full: there are no older messages to fetch.
+			if (messages.length < limit * 4) break;
+
+			untilId = messages[messages.length - 1].id;
 		}
 
 		return history;
