@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 	<MkKeyValue>
 		<template #key>{{ i18n.ts.description }}</template>
-		<template #value><div v-html="instance.description"></div></template>
+		<template #value><div v-html="sanitizedDescription"></div></template>
 	</MkKeyValue>
 
 	<FormSection>
@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<template #key>Misskey</template>
 				<template #value>{{ version }}</template>
 			</MkKeyValue>
-			<div v-html="i18n.tsx.poweredByMisskeyDescription({ name: instance.name ?? host })">
+			<div v-html="i18n.tsx.poweredByMisskeyDescription({ name: escapeHtml(instance.name ?? host) })">
 			</div>
 			<FormLink to="/about-misskey">
 				<template #icon><i class="ti ti-info-circle"></i></template>
@@ -75,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					<template #icon><i class="ti ti-checkup-list"></i></template>
 					<template #label>{{ i18n.ts.serverRules }}</template>
 					<ol class="_gaps_s" :class="$style.rules">
-						<li v-for="item in instance.serverRules" :key="item" :class="$style.rule">
+						<li v-for="item in sanitizedServerRules" :key="item" :class="$style.rule">
 							<div :class="$style.ruleText" v-html="item"></div>
 						</li>
 					</ol>
@@ -126,9 +126,15 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { host, version } from '@@/js/config.js';
+import { escapeHtml } from '@/utility/escape-html.js';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
+import { sanitizeServerProvidedHtml } from '@/utility/sanitize-server-provided-html.js';
+
+const sanitizedDescription = computed(() => sanitizeServerProvidedHtml(instance.description ?? ''));
+const sanitizedServerRules = computed(() => instance.serverRules.map(rule => sanitizeServerProvidedHtml(rule)));
 import number from '@/filters/number.js';
 import { misskeyApi } from '@/utility/misskey-api.js';
 import FormLink from '@/components/form/link.vue';

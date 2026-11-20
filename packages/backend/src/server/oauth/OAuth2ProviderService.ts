@@ -414,8 +414,9 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 		private htmlTemplateService: HtmlTemplateService,
 		loggerService: LoggerService,
 	) {
-		this.#authorizationTransactionCache = new MemoryKVCache<AuthorizationTransaction>(1000 * 60 * 5);
-		this.#grantCodeCache = new MemoryKVCache<AuthorizationCodeGrant>(1000 * 60 * 5);
+		// 認可リクエストは無認証でエントリを作成できるため、エントリ数上限を設けてメモリ消費を抑える
+		this.#authorizationTransactionCache = new MemoryKVCache<AuthorizationTransaction>(1000 * 60 * 5, 1000);
+		this.#grantCodeCache = new MemoryKVCache<AuthorizationCodeGrant>(1000 * 60 * 5, 1000);
 		this.#logger = loggerService.getLogger('oauth');
 	}
 
@@ -690,7 +691,8 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 					await this.#revokeGrantCode(granted, code);
 					throw new InvalidGrantError('grant request is invalid');
 				}
-				granted.used = true;
+				// 検証に失敗したコードの再使用を許すため、used フラグは検証成功後に立てる
+				// （clientId/redirect_uri/PKCE の検証前に立てると、タイポ一回でコードが無効化される）
 
 				// https://datatracker.ietf.org/doc/html/rfc6749.html#section-4.1.3
 				if (clientId !== granted.clientId || redirectUriValue !== granted.redirectUri) {
@@ -702,8 +704,13 @@ export class OAuth2ProviderService implements OnApplicationShutdown {
 					throw new InvalidGrantError('grant request is invalid');
 				}
 
+				// 並行するリクエストによる二重トークン発行を防ぐため、検証前にコードを使用済みにする
+				granted.used = true;
+
 				const challengeResult = await verifyChallenge(codeVerifier, granted.codeChallenge);
 				if (!challengeResult) {
+					// PKCE検証の失敗はタイポの可能性があるため、再試行を許可する
+					granted.used = false;
 					throw new InvalidGrantError('grant request is invalid');
 				}
 

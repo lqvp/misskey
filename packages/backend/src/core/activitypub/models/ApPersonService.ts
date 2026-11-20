@@ -714,13 +714,18 @@ export class ApPersonService implements OnModuleInit {
 		if (!isCollectionOrOrderedCollection(collection)) throw new Error('Object is not Collection or OrderedCollection');
 
 		// Resolve to Object(may be Note) arrays
+		// ピン留めに使うのは先頭5件のみのため、コレクション全体を解決せず対象を絞る
+		// （ResolverのURL予算や fetch 回数の観点からも、コレクションが巨大な場合の増幅を防ぐ）
 		const unresolvedItems = isCollection(collection) ? collection.items : collection.orderedItems;
-		const items = await Promise.all(toArray(unresolvedItems).map(x => _resolver.resolve(x)));
+		const items = await Promise.all(toArray(unresolvedItems)
+			.filter(item => typeof item === 'string' || getApType(item) === 'Note')
+			.slice(0, 20)
+			.map(x => _resolver.resolve(x).catch((): IObject | null => null)));
 
 		// Resolve and regist Notes
 		const limit = promiseLimit<MiNote | null>(2);
 		const featuredNotes = await Promise.all(items
-			.filter(item => getApType(item) === 'Note')	// TODO: Noteでなくてもいいかも
+			.filter((item): item is IObject => item != null && getApType(item) === 'Note')	// TODO: Noteでなくてもいいかも
 			.slice(0, 5)
 			.map(item => limit(() => this.apNoteService.resolveNote(item, {
 				resolver: _resolver,

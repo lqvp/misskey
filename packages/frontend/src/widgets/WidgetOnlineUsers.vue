@@ -49,7 +49,7 @@ const onlineUsersCount = ref(0);
 const tick = () => {
 	misskeyApiGet('get-online-users-count').then(res => {
 		onlineUsersCount.value = res.count;
-	});
+	}).catch(() => {});
 };
 
 useInterval(tick, 1000 * 15, {

@@ -4,12 +4,14 @@
  */
 
 import ms from 'ms';
+import { In } from 'typeorm';
 import { Inject, Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { DriveFilesRepository, GalleryPostsRepository } from '@/models/_.js';
 import type { MiDriveFile } from '@/models/DriveFile.js';
 import { GalleryPostEntityService } from '@/core/entities/GalleryPostEntityService.js';
 import { DI } from '@/di-symbols.js';
+import { ApiError } from '../../../error.js';
 
 export const meta = {
 	tags: ['gallery'],
@@ -32,7 +34,11 @@ export const meta = {
 	},
 
 	errors: {
-
+		noSuchPost: {
+			message: 'No such post.',
+			code: 'NO_SUCH_POST',
+			id: 'bff69d45-6165-41fa-a900-421b5a32bf11',
+		},
 	},
 } as const;
 
@@ -65,12 +71,13 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			let files: Array<MiDriveFile> | undefined;
 
 			if (ps.fileIds) {
-				files = (await Promise.all(ps.fileIds.map(fileId =>
-					this.driveFilesRepository.findOneBy({
-						id: fileId,
+				const filesMap = new Map((await this.driveFilesRepository.find({
+					where: {
+						id: In(ps.fileIds),
 						userId: me.id,
-					}),
-				))).filter(x => x != null);
+					},
+				})).map(file => [file.id, file]));
+				files = ps.fileIds.map(fileId => filesMap.get(fileId)).filter(x => x != null);
 
 				if (files.length === 0) {
 					throw new Error();
@@ -88,7 +95,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				fileIds: files ? files.map(file => file.id) : undefined,
 			});
 
-			const post = await this.galleryPostsRepository.findOneByOrFail({ id: ps.postId });
+			const post = await this.galleryPostsRepository.findOneBy({
+				id: ps.postId,
+				userId: me.id,
+			});
+
+			if (post == null) {
+				throw new ApiError(meta.errors.noSuchPost);
+			}
 
 			return await this.galleryPostEntityService.pack(post, me);
 		});

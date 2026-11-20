@@ -17,6 +17,8 @@ import type { DeleteObjectCommandInput, PutObjectCommandInput } from '@aws-sdk/c
 
 @Injectable()
 export class S3Service {
+	private cachedClient: { key: string, client: S3Client } | null = null;
+
 	constructor(
 		private httpRequestService: HttpRequestService,
 	) {
@@ -24,6 +26,22 @@ export class S3Service {
 
 	@bindThis
 	public getS3Client(meta: MiMeta): S3Client {
+		// 設定が変わっていない限り、生成済みのクライアントを使い回す
+		const cacheKey = JSON.stringify([
+			meta.objectStorageEndpoint,
+			meta.objectStorageUseSSL,
+			meta.objectStorageUseProxy,
+			meta.objectStorageAccessKey,
+			meta.objectStorageSecretKey,
+			meta.objectStorageRegion,
+			meta.objectStorageS3ForcePathStyle,
+		]);
+		if (this.cachedClient?.key === cacheKey) {
+			return this.cachedClient.client;
+		}
+		// NodeHttpHandler は HttpRequestService と共有の agent を使うため、
+		// 旧クライアントを destroy すると共有agentまで破棄され得る。ここでは参照を差し替えるのみとする
+
 		const u = meta.objectStorageEndpoint
 			? `${meta.objectStorageUseSSL ? 'https' : 'http'}://${meta.objectStorageEndpoint}`
 			: `${meta.objectStorageUseSSL ? 'https' : 'http'}://example.net`; // dummy url to select http(s) agent
@@ -36,7 +54,7 @@ export class S3Service {
 			handlerOption.httpAgent = agent as http.Agent;
 		}
 
-		return new S3Client({
+		const client = new S3Client({
 			endpoint: meta.objectStorageEndpoint ? u : undefined,
 			credentials: (meta.objectStorageAccessKey !== null && meta.objectStorageSecretKey !== null) ? {
 				accessKeyId: meta.objectStorageAccessKey,
@@ -49,6 +67,9 @@ export class S3Service {
 			requestChecksumCalculation: 'WHEN_REQUIRED',
 			responseChecksumValidation: 'WHEN_REQUIRED',
 		});
+
+		this.cachedClient = { key: cacheKey, client };
+		return client;
 	}
 
 	@bindThis

@@ -25,6 +25,7 @@ import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js
 import type { MiChannel } from '@/models/Channel.js';
 import { normalizeTag } from '@/misc/normalize-tag.js';
 import { RelayService } from '@/core/RelayService.js';
+import { LoggerService } from '@/core/LoggerService.js';
 import { FederatedInstanceService } from '@/core/FederatedInstanceService.js';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
@@ -202,6 +203,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		@Inject(DI.meta)
 		private meta: MiMeta,
+
+		private loggerService: LoggerService,
 
 		@Inject(DI.db)
 		private db: DataSource,
@@ -740,7 +743,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 				throw err;
 			}
 
-			console.error(e);
+			// 構造化ログ・集約から外れないようloggerを使う
+			this.loggerService.getLogger('note-create').error(e instanceof Error ? e : new Error(String(e)));
 
 			throw e;
 		}
@@ -796,21 +800,35 @@ export class NoteCreateService implements OnApplicationShutdown {
 				notify: 'normal',
 			}).then(async followings => {
 				if (note.visibility !== 'specified') {
-					const isPureRenote = this.isRenote(data) && !this.isQuote(data) ? true : false;
-					for (const following of followings) {
-						// TODO: ワードミュート考慮
-						let isRenoteMuted = false;
-						if (isPureRenote) {
+				const isPureRenote = this.isRenote(data) && !this.isQuote(data) ? true : false;
+				// リノートミュート判定はフォロワーごとにキャッシュフェッチが必要なため、並列で一括取得する (直列awaitによる遅延を回避)
+				let renoteMutedFollowerIds: Set<string>;
+				if (isPureRenote) {
+					renoteMutedFollowerIds = new Set();
+					// キャッシュフェッチをフォロワー全員に同時発行するとRedis/DBに瞬間的な負荷がかかるため、一定件数ずつ処理する
+					const CHUNK_SIZE = 100;
+					for (let i = 0; i < followings.length; i += CHUNK_SIZE) {
+						const chunk = followings.slice(i, i + CHUNK_SIZE);
+						const results = await Promise.all(chunk.map(async following => {
+							// TODO: ワードミュート考慮
 							const userIdsWhoMeMutingRenotes = await this.cacheService.renoteMutingsCache.fetch(following.followerId);
-							isRenoteMuted = userIdsWhoMeMutingRenotes.has(user.id);
-						}
-						if (!isRenoteMuted) {
-							this.notificationService.createNotification(following.followerId, 'note', {
-								noteId: note.id,
-							}, user.id);
+							return userIdsWhoMeMutingRenotes.has(user.id) ? following.followerId : null;
+						}));
+						for (const id of results) {
+							if (id != null) renoteMutedFollowerIds.add(id);
 						}
 					}
+				} else {
+					renoteMutedFollowerIds = new Set();
 				}
+				for (const following of followings) {
+					if (!renoteMutedFollowerIds.has(following.followerId)) {
+						this.notificationService.createNotification(following.followerId, 'note', {
+							noteId: note.id,
+						}, user.id);
+					}
+				}
+			}
 			});
 		}
 
@@ -997,15 +1015,17 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 	@bindThis
 	private async createMentionedEvents(mentionedUsers: MinimumUser[], note: MiNote, nm: NotificationManager) {
-		for (const u of mentionedUsers.filter(u => this.userEntityService.isLocalUser(u))) {
-			const isThreadMuted = await this.noteThreadMutingsRepository.exists({
-				where: {
-					userId: u.id,
-					threadId: note.threadId ?? note.id,
-				},
-			});
+		const localMentionedUsers = mentionedUsers.filter(u => this.userEntityService.isLocalUser(u));
+		if (localMentionedUsers.length === 0) return;
 
-			if (isThreadMuted) {
+		// 一度のクエリでミュート済みユーザーをまとめて取得する (N+1 解消)
+		const threadMutedUserIds = new Set((await this.noteThreadMutingsRepository.findBy({
+			userId: In(localMentionedUsers.map(u => u.id)),
+			threadId: note.threadId ?? note.id,
+		})).map(x => x.userId));
+
+		for (const u of localMentionedUsers) {
+			if (threadMutedUserIds.has(u.id)) {
 				continue;
 			}
 

@@ -195,7 +195,7 @@ export class ClientServerService {
 
 		manifest = {
 			...manifest,
-			...JSON.parse(this.meta.manifestJsonOverride === '' ? '{}' : this.meta.manifestJsonOverride),
+			...this.parseManifestJsonOverride(),
 		};
 
 		reply.header('Cache-Control', 'max-age=300');
@@ -203,6 +203,15 @@ export class ClientServerService {
 	}
 
 	@bindThis
+	private parseManifestJsonOverride(): Record<string, unknown> {
+		if (this.meta.manifestJsonOverride === '') return {};
+		try {
+			return JSON.parse(this.meta.manifestJsonOverride) as Record<string, unknown>;
+		} catch (e) {
+			this.clientLoggerService.logger.warn(`invalid manifestJsonOverride: ${e instanceof Error ? e.message : e}`);
+			return {};
+		}
+	}
 	public createServer(fastify: FastifyInstance, options: FastifyPluginOptions, done: (err?: Error) => void) {
 		const configUrl = new URL(this.config.url);
 
@@ -235,22 +244,24 @@ export class ClientServerService {
 			});
 		} else {
 			this.clientLoggerService.logger.info('[ClientServerService] Proxying to Vite dev server.');
-			const fastifyProxy = import('@fastify/http-proxy');
-
 			const urlOriginWithoutPort = configUrl.origin.replace(/:\d+$/, '');
 
-			const port = (process.env.VITE_PORT ?? '5173');
-			fastify.register(fastifyProxy, {
-				upstream: urlOriginWithoutPort + ':' + port,
-				prefix: '/vite',
-				rewritePrefix: '/vite',
-			});
+			import('@fastify/http-proxy').then(fastifyProxy => {
+				const port = (process.env.VITE_PORT ?? '5173');
+				fastify.register(fastifyProxy.default, {
+					upstream: urlOriginWithoutPort + ':' + port,
+					prefix: '/vite',
+					rewritePrefix: '/vite',
+				});
 
-			const embedPort = (process.env.EMBED_VITE_PORT ?? '5174');
-			fastify.register(fastifyProxy, {
-				upstream: urlOriginWithoutPort + ':' + embedPort,
-				prefix: '/embed_vite',
-				rewritePrefix: '/embed_vite',
+				const embedPort = (process.env.EMBED_VITE_PORT ?? '5174');
+				fastify.register(fastifyProxy.default, {
+					upstream: urlOriginWithoutPort + ':' + embedPort,
+					prefix: '/embed_vite',
+					rewritePrefix: '/embed_vite',
+				});
+			}).catch(err => {
+				this.clientLoggerService.logger.error('[ClientServerService] Failed to load @fastify/http-proxy', err);
 			});
 		}
 		//#endregion

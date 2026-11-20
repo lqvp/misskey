@@ -6,6 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { PagesRepository, PageLikesRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '../../error.js';
@@ -82,13 +83,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// Create like
-			await this.pageLikesRepository.insert({
-				id: this.idService.gen(),
-				pageId: page.id,
-				userId: me.id,
-			});
+			try {
+				await this.pageLikesRepository.insert({
+					id: this.idService.gen(),
+					pageId: page.id,
+					userId: me.id,
+				});
+			} catch (e) {
+				if (isDuplicateKeyValueError(e)) {
+					throw new ApiError(meta.errors.alreadyLiked);
+				}
+				throw e;
+			}
 
-			this.pagesRepository.increment({ id: page.id }, 'likedCount', 1);
+			await this.pagesRepository.increment({ id: page.id }, 'likedCount', 1);
 		});
 	}
 }

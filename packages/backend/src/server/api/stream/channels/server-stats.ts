@@ -43,6 +43,8 @@ export class ServerStatsChannel extends Channel {
 		switch (type) {
 			case 'requestLog':
 				if (!isJsonObject(body)) return;
+				if (typeof body.id !== 'string') return;
+				if (typeof body.length !== 'number') return;
 				ev.once(`serverStatsLog:${body.id}`, statsLog => {
 					this.send('statsLog', statsLog);
 				});

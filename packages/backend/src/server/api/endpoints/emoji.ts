@@ -9,6 +9,7 @@ import type { EmojisRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { EmojiEntityService } from '@/core/entities/EmojiEntityService.js';
 import { DI } from '@/di-symbols.js';
+import { ApiError } from '../error.js';
 
 export const meta = {
 	tags: ['meta'],
@@ -16,6 +17,15 @@ export const meta = {
 	requireCredential: false,
 	allowGet: true,
 	cacheSec: 3600,
+
+	errors: {
+		noSuchEmoji: {
+			message: 'No such emoji.',
+			code: 'NO_SUCH_EMOJI',
+			id: 'a665f1e4-22d3-41f2-93f1-9dc5d7a2b1f0',
+			httpStatusCode: 404,
+		},
+	},
 
 	res: {
 		type: 'object',
@@ -43,12 +53,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private emojiEntityService: EmojiEntityService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const emoji = await this.emojisRepository.findOneOrFail({
-				where: {
-					name: ps.name,
-					host: IsNull(),
-				},
+			const emoji = await this.emojisRepository.findOneBy({
+				name: ps.name,
+				host: IsNull(),
 			});
+
+			if (emoji == null) throw new ApiError(meta.errors.noSuchEmoji);
 
 			return this.emojiEntityService.packDetailed(emoji);
 		});

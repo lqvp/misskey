@@ -4,7 +4,6 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import { maximum } from '@/misc/prelude/array.js';
 import type { NotesRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
@@ -75,9 +74,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw err;
 			});
 
-			// Fetch recent notes
-			const recentNotesQuery = this.notesRepository.createQueryBuilder('note')
-				.select(['note.id', 'note.replyId'])
+			// 直近のリプライ先をサブクエリとして取得し、DB内で集計する
+			const recentRepliesQuery = this.notesRepository.createQueryBuilder('note')
+				.select('note.replyId', 'replyId')
 				.where('note.userId = :userId', { userId: user.id })
 				.andWhere('note.replyId IS NOT NULL')
 				.orderBy('note.id', 'DESC')
@@ -87,54 +86,45 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			// `note.userId = :meId` に必ず一致して常に真になるので、条件ごと省略する
 			const isSelf = me != null && me.id === user.id;
 			if (!isSelf) {
-				this.queryService.generateVisibilityQuery(recentNotesQuery, me);
+				this.queryService.generateVisibilityQuery(recentRepliesQuery, me);
 			}
 
-			const recentNotes = await recentNotesQuery.getMany();
+			const replyTargetCountsQuery = this.notesRepository.createQueryBuilder('note')
+				.select('note.userId', 'userId')
+				.addSelect('COUNT(*)', 'count')
+				.where(`note.id IN (${recentRepliesQuery.getQuery()})`);
+			replyTargetCountsQuery.setParameters(recentRepliesQuery.getParameters());
+
+			this.queryService.generateVisibilityQuery(replyTargetCountsQuery, me);
+
+			const replyTargetCounts = await replyTargetCountsQuery
+				.groupBy('note.userId')
+				.orderBy('count', 'DESC')
+				.getRawMany();
 
 			// 投稿が少なかったら中断
-			if (recentNotes.length === 0) {
+			if (replyTargetCounts.length === 0) {
 				return [];
 			}
 
-			// TODO ミュートを考慮
-			const replyTargetNotesQuery = this.notesRepository.createQueryBuilder('note')
-				.select(['note.id', 'note.userId'])
-				.where('note.id IN (:...replyIds)', { replyIds: recentNotes.map(p => p.replyId) });
-
-			this.queryService.generateVisibilityQuery(replyTargetNotesQuery, me);
-
-			const replyTargetNotes = await replyTargetNotesQuery.getMany();
-
-			const repliedUsers: any = {};
-
-			// Extract replies from recent notes
-			for (const userId of replyTargetNotes.map(x => x.userId.toString())) {
-				if (repliedUsers[userId]) {
-					repliedUsers[userId]++;
-				} else {
-					repliedUsers[userId] = 1;
-				}
-			}
+			const counts = new Map<string, number>(replyTargetCounts.map(x => [x.userId, Number(x.count)]));
 
 			// Calc peak
-			const peak = maximum(Object.values(repliedUsers));
+			const peak = Math.max(...counts.values());
 
 			// Sort replies by frequency
-			const repliedUsersSorted = Object.keys(repliedUsers).sort((a, b) => repliedUsers[b] - repliedUsers[a]);
-
-			// Extract top replied users
-			const topRepliedUserIds = repliedUsersSorted.slice(0, ps.limit);
+			const topRepliedUserIds = [...counts.entries()]
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, ps.limit)
+				.map(([userId]) => userId);
 
 			// Make replies object (includes weights)
 			const _userMap = await this.userEntityService.packMany(topRepliedUserIds, me, { schema: 'UserDetailed' })
 				.then(users => new Map(users.map(u => [u.id, u])));
-			const repliesObj = await Promise.all(topRepliedUserIds.map(async (userId) => ({
+			return await Promise.all(topRepliedUserIds.map(async (userId) => ({
 				user: _userMap.get(userId) ?? (await this.userEntityService.pack(userId, me, { schema: 'UserDetailed' })),
-				weight: repliedUsers[userId] / peak,
+				weight: counts.get(userId)! / peak,
 			})));
-
-			return repliesObj;
 		});
 	}
 }

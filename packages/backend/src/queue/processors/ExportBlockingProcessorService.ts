@@ -5,7 +5,7 @@
 
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
-import { MoreThan } from 'typeorm';
+import { In, MoreThan } from 'typeorm';
 import { format as dateFormat } from 'date-fns';
 import { DI } from '@/di-symbols.js';
 import type { UsersRepository, BlockingsRepository, MiBlocking } from '@/models/_.js';
@@ -81,8 +81,13 @@ export class ExportBlockingProcessorService {
 
 				cursor = blockings.at(-1)?.id ?? null;
 
+				const users = await this.usersRepository.findBy({
+					id: In(blockings.map(x => x.blockeeId)),
+				});
+				const usersMap = new Map(users.map(u => [u.id, u]));
+
 				for (const block of blockings) {
-					const u = await this.usersRepository.findOneBy({ id: block.blockeeId });
+					const u = usersMap.get(block.blockeeId);
 					if (u == null) {
 						exportedCount++; continue;
 					}

@@ -11560,6 +11560,14 @@ export interface Locale extends ILocale {
          */
         "promoteQueue": string;
         /**
+         * キュージョブを削除
+         */
+        "removeQueueJob": string;
+        /**
+         * キュージョブを再試行
+         */
+        "retryQueueJob": string;
+        /**
          * ロールを作成
          */
         "createRole": string;

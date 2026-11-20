@@ -95,9 +95,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 					// Check if the circular reference will occur
 					const checkCircle = async (folderId: string): Promise<boolean> => {
-						const folder2 = await this.driveFoldersRepository.findOneByOrFail({
+						// 祖先フォルダが並行処理で削除済みの場合、循環は発生しないので辿るのをやめる
+						const folder2 = await this.driveFoldersRepository.findOneBy({
 							id: folderId,
 						});
+						if (folder2 == null) return false;
 
 						if (folder2.id === folder.id) {
 							return true;

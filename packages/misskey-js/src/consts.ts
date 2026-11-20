@@ -340,6 +340,14 @@ export type ModerationLogPayloads = {
 	};
 	clearQueue: Record<string, never>;
 	promoteQueue: Record<string, never>;
+	removeQueueJob: {
+		queue: string;
+		jobId: string;
+	};
+	retryQueueJob: {
+		queue: string;
+		jobId: string;
+	};
 	deleteDriveFile: {
 		fileId: string;
 		fileUserId: string | null;

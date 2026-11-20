@@ -32,11 +32,14 @@ export class ReversiGameChannel extends Channel {
 	}
 
 	@bindThis
-	public async init(params: JsonObject) {
-		if (typeof params.gameId !== 'string') return;
+	public async init(params: JsonObject): Promise<boolean> {
+		// 無効なパラメータの場合は接続を拒否する
+		if (typeof params.gameId !== 'string') return false;
 		this.gameId = params.gameId;
 
 		this.subscriber.on(`reversiGameStream:${this.gameId}`, this.send);
+
+		return true;
 	}
 
 	@bindThis

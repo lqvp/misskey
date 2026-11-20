@@ -22,6 +22,7 @@ import type { MiDriveFile } from './DriveFile.js';
 // Not appending `{ concurrent: true }` to `@Index` will not cause any problem in production,
 
 @Index(['userId', 'id']) // Note: this index is ("userId", "id" DESC) in production, but not in test.
+@Index('IDX_NOTE_USER_ID_CHANNEL_ID', ['userId', 'channelId'])
 @Entity('note')
 export class MiNote {
 	@PrimaryColumn(id())
@@ -62,6 +63,7 @@ export class MiNote {
 	public threadId: string | null;
 
 	// TODO: varcharにしたい
+	@Index('IDX_NOTE_TEXT_TRGM', { synchronize: false })
 	@Column('text', {
 		nullable: true,
 	})
@@ -72,6 +74,7 @@ export class MiNote {
 	})
 	public name: string | null;
 
+	@Index('IDX_NOTE_CW_TRGM', { synchronize: false })
 	@Column('varchar', {
 		length: 512, nullable: true,
 	})

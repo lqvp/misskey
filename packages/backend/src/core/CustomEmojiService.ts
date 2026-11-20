@@ -127,7 +127,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			});
 
 			if (moderator) {
-				this.moderationLogService.log(moderator, 'addCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'addCustomEmoji', {
 					emojiId: emoji.id,
 					emoji: emoji,
 				});
@@ -202,7 +202,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 
 		if (moderator) {
 			const updated = await this.emojisRepository.findOneByOrFail({ id: id });
-			this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+			await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 				emojiId: emoji.id,
 				before: emoji,
 				after: updated,
@@ -212,16 +212,28 @@ export class CustomEmojiService implements OnApplicationShutdown {
 	}
 
 	@bindThis
-	public async addAliasesBulk(ids: MiEmoji['id'][], aliases: string[]) {
+	public async addAliasesBulk(ids: MiEmoji['id'][], aliases: string[], moderator?: MiUser) {
 		const emojis = await this.emojisRepository.findBy({
 			id: In(ids),
 		});
 
-		for (const emoji of emojis) {
-			await this.emojisRepository.update(emoji.id, {
-				updatedAt: new Date(),
-				aliases: [...new Set(emoji.aliases.concat(aliases))],
-			});
+		// 1件ずつUPDATEすると絵文字数分のラウンドトリップが発生するため、並列化する
+		await Promise.all(emojis.map(emoji => this.emojisRepository.update(emoji.id, {
+			updatedAt: new Date(),
+			aliases: [...new Set(emoji.aliases.concat(aliases))],
+		})));
+
+		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+					emojiId: emoji.id,
+					before: emoji,
+					after: updatedMap.get(emoji.id),
+				});
+			}
 		}
 
 		this.localEmojisCache.refresh();
@@ -232,7 +244,11 @@ export class CustomEmojiService implements OnApplicationShutdown {
 	}
 
 	@bindThis
-	public async setAliasesBulk(ids: MiEmoji['id'][], aliases: string[]) {
+	public async setAliasesBulk(ids: MiEmoji['id'][], aliases: string[], moderator?: MiUser) {
+		const emojis = moderator
+			? await this.emojisRepository.findBy({ id: In(ids) })
+			: [];
+
 		await this.emojisRepository.update({
 			id: In(ids),
 		}, {
@@ -240,24 +256,17 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			aliases: aliases,
 		});
 
-		this.localEmojisCache.refresh();
-
-		this.globalEventService.publishBroadcastStream('emojiUpdated', {
-			emojis: await this.emojiEntityService.packDetailedMany(ids),
-		});
-	}
-
-	@bindThis
-	public async removeAliasesBulk(ids: MiEmoji['id'][], aliases: string[]) {
-		const emojis = await this.emojisRepository.findBy({
-			id: In(ids),
-		});
-
-		for (const emoji of emojis) {
-			await this.emojisRepository.update(emoji.id, {
-				updatedAt: new Date(),
-				aliases: emoji.aliases.filter(x => !aliases.includes(x)),
-			});
+		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+					emojiId: emoji.id,
+					before: emoji,
+					after: updatedMap.get(emoji.id),
+				});
+			}
 		}
 
 		this.localEmojisCache.refresh();
@@ -268,13 +277,29 @@ export class CustomEmojiService implements OnApplicationShutdown {
 	}
 
 	@bindThis
-	public async setCategoryBulk(ids: MiEmoji['id'][], category: string | null) {
-		await this.emojisRepository.update({
+	public async removeAliasesBulk(ids: MiEmoji['id'][], aliases: string[], moderator?: MiUser) {
+		const emojis = await this.emojisRepository.findBy({
 			id: In(ids),
-		}, {
-			updatedAt: new Date(),
-			category: category,
 		});
+
+		// 1件ずつUPDATEすると絵文字数分のラウンドトリップが発生するため、並列化する
+		await Promise.all(emojis.map(emoji => this.emojisRepository.update(emoji.id, {
+			updatedAt: new Date(),
+			aliases: emoji.aliases.filter(x => !aliases.includes(x)),
+		})));
+
+		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+					emojiId: emoji.id,
+					before: emoji,
+					after: updatedMap.get(emoji.id),
+				});
+			}
+		}
 
 		this.localEmojisCache.refresh();
 
@@ -284,13 +309,63 @@ export class CustomEmojiService implements OnApplicationShutdown {
 	}
 
 	@bindThis
-	public async setLicenseBulk(ids: MiEmoji['id'][], license: string | null) {
+	public async setCategoryBulk(ids: MiEmoji['id'][], category: string | null, moderator?: MiUser) {
+		const emojis = moderator
+			? await this.emojisRepository.findBy({ id: In(ids) })
+			: [];
+
+		await this.emojisRepository.update({
+			id: In(ids),
+		}, {
+			updatedAt: new Date(),
+			category: category,
+		});
+
+		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+					emojiId: emoji.id,
+					before: emoji,
+					after: updatedMap.get(emoji.id),
+				});
+			}
+		}
+
+		this.localEmojisCache.refresh();
+
+		this.globalEventService.publishBroadcastStream('emojiUpdated', {
+			emojis: await this.emojiEntityService.packDetailedMany(ids),
+		});
+	}
+
+	@bindThis
+	public async setLicenseBulk(ids: MiEmoji['id'][], license: string | null, moderator?: MiUser) {
+		const emojis = moderator
+			? await this.emojisRepository.findBy({ id: In(ids) })
+			: [];
+
 		await this.emojisRepository.update({
 			id: In(ids),
 		}, {
 			updatedAt: new Date(),
 			license: license,
 		});
+
+		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+					emojiId: emoji.id,
+					before: emoji,
+					after: updatedMap.get(emoji.id),
+				});
+			}
+		}
 
 		this.localEmojisCache.refresh();
 
@@ -312,7 +387,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		});
 
 		if (moderator) {
-			this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
+			await this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
 				emojiId: emoji.id,
 				emoji: emoji,
 			});
@@ -325,11 +400,11 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			id: In(ids),
 		});
 
-		for (const emoji of emojis) {
-			await this.emojisRepository.delete(emoji.id);
+		await this.emojisRepository.delete({ id: In(emojis.map(emoji => emoji.id)) });
 
-			if (moderator) {
-				this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
+		if (moderator) {
+			for (const emoji of emojis) {
+				await this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
 					emojiId: emoji.id,
 					emoji: emoji,
 				});

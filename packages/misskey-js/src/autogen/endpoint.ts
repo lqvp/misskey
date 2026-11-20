@@ -189,6 +189,7 @@ import type {
 	ChannelsMuteCreateRequest,
 	ChannelsMuteDeleteRequest,
 	ChannelsMuteListResponse,
+	ChannelsMyFavoritesRequest,
 	ChannelsMyFavoritesResponse,
 	ChannelsOwnedRequest,
 	ChannelsOwnedResponse,
@@ -273,6 +274,7 @@ import type {
 	ClipsFavoriteRequest,
 	ClipsListRequest,
 	ClipsListResponse,
+	ClipsMyFavoritesRequest,
 	ClipsMyFavoritesResponse,
 	ClipsNotesRequest,
 	ClipsNotesResponse,
@@ -800,7 +802,7 @@ export type Endpoints = {
 	'channels/mute/create': { req: ChannelsMuteCreateRequest; res: EmptyResponse };
 	'channels/mute/delete': { req: ChannelsMuteDeleteRequest; res: EmptyResponse };
 	'channels/mute/list': { req: EmptyRequest; res: ChannelsMuteListResponse };
-	'channels/my-favorites': { req: EmptyRequest; res: ChannelsMyFavoritesResponse };
+	'channels/my-favorites': { req: ChannelsMyFavoritesRequest; res: ChannelsMyFavoritesResponse };
 	'channels/owned': { req: ChannelsOwnedRequest; res: ChannelsOwnedResponse };
 	'channels/search': { req: ChannelsSearchRequest; res: ChannelsSearchResponse };
 	'channels/show': { req: ChannelsShowRequest; res: ChannelsShowResponse };
@@ -850,7 +852,7 @@ export type Endpoints = {
 	'clips/delete': { req: ClipsDeleteRequest; res: EmptyResponse };
 	'clips/favorite': { req: ClipsFavoriteRequest; res: EmptyResponse };
 	'clips/list': { req: ClipsListRequest; res: ClipsListResponse };
-	'clips/my-favorites': { req: EmptyRequest; res: ClipsMyFavoritesResponse };
+	'clips/my-favorites': { req: ClipsMyFavoritesRequest; res: ClipsMyFavoritesResponse };
 	'clips/notes': { req: ClipsNotesRequest; res: ClipsNotesResponse };
 	'clips/remove-note': { req: ClipsRemoveNoteRequest; res: EmptyResponse };
 	'clips/show': { req: ClipsShowRequest; res: ClipsShowResponse };

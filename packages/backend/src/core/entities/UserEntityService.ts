@@ -251,7 +251,9 @@ export class UserEntityService implements OnModuleInit {
 			muters,
 			renoteMuters,
 		] = await Promise.all([
-			this.followingsRepository.findBy({ followerId: me })
+			// follows を全件ロードすると、フォロー数が多いユーザーで転送量が O(全フォロー数) になる。
+			// 呼び出し元は targets の分しか読まないので、必要最小限に絞り込む。
+			this.followingsRepository.findBy({ followerId: me, followeeId: In(targets) })
 				.then(f => new Map(f.map(it => [it.followeeId, it]))),
 			this.followingsRepository.createQueryBuilder('f')
 				.select('f.followerId')
@@ -527,7 +529,13 @@ export class UserEntityService implements OnModuleInit {
 			...(isDetailed ? {
 				url: profile!.url,
 				uri: user.uri,
-				movedTo: user.movedToUri ? this.apPersonService.resolvePerson(user.movedToUri).then(user => user.id).catch(() => null) : null,
+				// resolvePerson はリモートへのネットワークfetchを伴うため、packのホットパスではDBキャッシュのみを参照する。
+				// 未登録の場合はレスポンスをブロックしないよう非同期で解決し、次回以降のpackで参照できるようにする
+				movedTo: user.movedToUri ? this.apPersonService.fetchPerson(user.movedToUri).then(fetched => {
+					if (fetched != null) return fetched.id;
+					this.apPersonService.resolvePerson(user.movedToUri!).catch(() => {});
+					return null;
+				}).catch(() => null) : null,
 				alsoKnownAs: user.alsoKnownAs ?
 					Promise.all(toArray(user.alsoKnownAs).map(uri => this.apPersonService.fetchPerson(uri).then(user => user?.id).catch(() => null)))
 				.then(xs => xs.length === 0 ? null : xs.filter(x => x != null))
@@ -690,31 +698,33 @@ export class UserEntityService implements OnModuleInit {
 			profilesMap = await this.userProfilesRepository.findBy({ userId: In(_userIds) })
 				.then(profiles => new Map(profiles.map(p => [p.userId, p])));
 
-			const meId = me ? me.id : null;
-			if (meId) {
-				if (_userIds.length > 0) {
-					userMemos = await this.userMemosRepository.findBy({ userId: meId, targetUserId: In(_userIds) })
-						.then(memos => new Map(memos.map(memo => [memo.targetUserId, memo.memo])));
+			// ピン留めノートは実行者の有無に関わらずスキーマで必要になるため、まとめて取得する
+			if (_userIds.length > 0) {
+				pinNotes = await this.userNotePiningsRepository.createQueryBuilder('pin')
+					.where('pin.userId IN (:...userIds)', { userIds: _userIds })
+					.innerJoinAndSelect('pin.note', 'note')
+					.getMany()
+					.then(pinsNotes => {
+						const map = new Map<MiUser['id'], MiUserNotePining[]>();
+						for (const note of pinsNotes) {
+							const notes = map.get(note.userId) ?? [];
+							notes.push(note);
+							map.set(note.userId, notes);
+						}
+						for (const [, notes] of map.entries()) {
+							// pack側ではDESCで取得しているので、それに合わせて降順に並び替えておく
+							notes.sort((a, b) => b.id.localeCompare(a.id));
+						}
+						return map;
+					});
+			}
 
-					userRelations = await this.getRelations(meId, _userIds);
-					pinNotes = await this.userNotePiningsRepository.createQueryBuilder('pin')
-						.where('pin.userId IN (:...userIds)', { userIds: _userIds })
-						.innerJoinAndSelect('pin.note', 'note')
-						.getMany()
-						.then(pinsNotes => {
-							const map = new Map<MiUser['id'], MiUserNotePining[]>();
-							for (const note of pinsNotes) {
-								const notes = map.get(note.userId) ?? [];
-								notes.push(note);
-								map.set(note.userId, notes);
-							}
-							for (const [, notes] of map.entries()) {
-								// pack側ではDESCで取得しているので、それに合わせて降順に並び替えておく
-								notes.sort((a, b) => b.id.localeCompare(a.id));
-							}
-							return map;
-						});
-				}
+			const meId = me ? me.id : null;
+			if (meId && _userIds.length > 0) {
+				userMemos = await this.userMemosRepository.findBy({ userId: meId, targetUserId: In(_userIds) })
+					.then(memos => new Map(memos.map(memo => [memo.targetUserId, memo.memo])));
+
+				userRelations = await this.getRelations(meId, _userIds);
 			}
 		}
 

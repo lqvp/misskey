@@ -39,14 +39,17 @@ export class EndedPollNotificationProcessorService {
 			return;
 		}
 
-		const votes = await this.pollVotesRepository.createQueryBuilder('vote')
-			.select('vote.userId')
+		const voteUserIds = await this.pollVotesRepository.createQueryBuilder('vote')
+			.select('DISTINCT vote.userId', 'userId')
 			.where('vote.noteId = :noteId', { noteId: note.id })
-			.innerJoinAndSelect('vote.user', 'user')
 			.andWhere('user.host IS NULL')
-			.getMany();
+			// 投稿者は別途 userIds に含めるため、ここでは除外して二重通知を防ぐ
+			.andWhere('vote.userId != :authorId', { authorId: note.userId })
+			.innerJoin('vote.user', 'user')
+			.getRawMany<{ userId: string }>()
+			.then(votes => votes.map(v => v.userId));
 
-		const userIds = [...new Set([note.userId, ...votes.map(v => v.userId)])];
+		const userIds = [note.userId, ...voteUserIds];
 
 		for (const userId of userIds) {
 			const profile = await this.cacheService.userProfileCache.fetch(userId);

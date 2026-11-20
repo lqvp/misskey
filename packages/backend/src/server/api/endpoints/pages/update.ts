@@ -55,16 +55,16 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		pageId: { type: 'string', format: 'misskey:id' },
-		title: { type: 'string' },
+		title: { type: 'string', maxLength: 256 },
 		name: { ...pageNameSchema, minLength: 1 },
-		summary: { type: 'string', nullable: true },
-		content: { type: 'array', items: {
+		summary: { type: 'string', nullable: true, maxLength: 256 },
+		content: { type: 'array', maxItems: 256, items: {
 			type: 'object', additionalProperties: true,
 		} },
-		variables: { type: 'array', items: {
+		variables: { type: 'array', maxItems: 256, items: {
 			type: 'object', additionalProperties: true,
 		} },
-		script: { type: 'string' },
+		script: { type: 'string', maxLength: 16384 },
 		eyeCatchingImageId: { type: 'string', format: 'misskey:id', nullable: true },
 		font: { type: 'string', enum: ['serif', 'sans-serif'] },
 		alignCenter: { type: 'boolean' },

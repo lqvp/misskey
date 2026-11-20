@@ -48,10 +48,10 @@ export const paramDef = {
 		untilDate: { type: 'integer' },
 		markAsRead: { type: 'boolean', default: true },
 		// 後方互換のため、廃止された通知タイプも受け付ける
-		includeTypes: { type: 'array', items: {
+		includeTypes: { type: 'array', maxItems: 100, items: {
 			type: 'string', enum: [...notificationTypes, ...obsoleteNotificationTypes],
 		} },
-		excludeTypes: { type: 'array', items: {
+		excludeTypes: { type: 'array', maxItems: 100, items: {
 			type: 'string', enum: [...notificationTypes, ...obsoleteNotificationTypes],
 		} },
 	},
@@ -91,7 +91,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			// Mark all as read
 			if (ps.markAsRead) {
-				this.notificationService.readAllNotification(me.id);
+				await this.notificationService.readAllNotification(me.id);
 			}
 
 			return await this.notificationEntityService.packMany(notifications, me.id);

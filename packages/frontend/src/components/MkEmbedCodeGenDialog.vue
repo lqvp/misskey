@@ -215,14 +215,20 @@ const resizeObserver = new ResizeObserver(() => {
 	calcScale();
 });
 
+let iframeBeforeUnloadAbort: AbortController | null = null;
+
 function iframeOnLoad() {
+	// iframeの再読み込みのたびに同一contentWindowへリスナーが蓄積するのを防ぐため、
+	// 前回のリスナーを解除してから登録する
+	iframeBeforeUnloadAbort?.abort();
+	iframeBeforeUnloadAbort = new AbortController();
 	iframeEl.value?.contentWindow?.addEventListener('beforeunload', () => {
 		iframeLoading.value = true;
 		nextTick(() => {
 			iframeHeight.value = 0;
 			iframeScale.value = 1;
 		});
-	});
+	}, { signal: iframeBeforeUnloadAbort.signal });
 }
 
 function windowEventHandler(event: MessageEvent) {
@@ -264,6 +270,8 @@ onMounted(() => {
 function reset() {
 	window.removeEventListener('message', windowEventHandler);
 	resizeObserver.disconnect();
+	iframeBeforeUnloadAbort?.abort();
+	iframeBeforeUnloadAbort = null;
 
 	// プレビューのリセット
 	iframeHeight.value = 0;

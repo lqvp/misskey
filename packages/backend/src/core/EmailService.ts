@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { createTransport } from 'nodemailer';
+import { createTransport, type Transporter } from 'nodemailer';
 import juice from 'juice';
 import sanitizeHtml from 'sanitize-html';
 import { Inject, Injectable } from '@nestjs/common';
@@ -13,6 +13,7 @@ import type { Config } from '@/config.js';
 import type Logger from '@/logger.js';
 import type { MiMeta, UserProfilesRepository } from '@/models/_.js';
 import { LoggerService } from '@/core/LoggerService.js';
+import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
 import { HttpRequestService } from '@/core/HttpRequestService.js';
 import { escapeHtml } from '@/misc/escape-html.js';
@@ -20,6 +21,10 @@ import { escapeHtml } from '@/misc/escape-html.js';
 @Injectable()
 export class EmailService {
 	private logger: Logger;
+
+	// Cache of external email validation results (DNS/external API lookups), keyed by email address.
+	// Unauthenticated endpoints can hammer this, so keep it bounded and short-lived.
+	private emailValidationCache = new Map<string, { expiresAt: number, result: { valid: boolean, reason?: string | null } }>();
 
 	constructor(
 		@Inject(DI.config)
@@ -38,6 +43,8 @@ export class EmailService {
 		this.logger = this.loggerService.getLogger('email');
 	}
 
+	private cachedTransporter: { key: string, transporter: Transporter } | null = null;
+
 	@bindThis
 	public async sendEmail(to: string, subject: string, html: string, text: string) {
 		if (!this.meta.enableEmail) return;
@@ -49,17 +56,36 @@ export class EmailService {
 
 		const sanitizedHtml = sanitizeHtml(html);
 
-		const transporter = createTransport({
-			host: this.meta.smtpHost ?? undefined,
-			port: this.meta.smtpPort ?? undefined,
-			secure: this.meta.smtpSecure,
-			ignoreTLS: !enableAuth,
-			proxy: this.config.proxySmtp,
-			auth: enableAuth ? {
-				user: this.meta.smtpUser!,
-				pass: this.meta.smtpPass ?? undefined,
-			} : undefined,
-		});
+		// SMTP設定が変わらない限り、接続プールを持つtransporterを使い回す
+		const transporterCacheKey = JSON.stringify([
+			this.meta.smtpHost,
+			this.meta.smtpPort,
+			this.meta.smtpSecure,
+			enableAuth,
+			this.meta.smtpUser,
+			this.meta.smtpPass,
+			this.config.proxySmtp,
+		]);
+		if (this.cachedTransporter?.key !== transporterCacheKey) {
+			this.cachedTransporter?.transporter.close();
+			this.cachedTransporter = {
+				key: transporterCacheKey,
+				transporter: createTransport({
+					// キャッシュして使い回すため、接続プールを有効にする
+					pool: true,
+					host: this.meta.smtpHost ?? undefined,
+					port: this.meta.smtpPort ?? undefined,
+					secure: this.meta.smtpSecure,
+					ignoreTLS: !enableAuth,
+					proxy: this.config.proxySmtp,
+					auth: enableAuth ? {
+						user: this.meta.smtpUser!,
+						pass: this.meta.smtpPass ?? undefined,
+					} : undefined,
+				}),
+			};
+		}
+		const transporter = this.cachedTransporter.transporter;
 
 		const htmlContent = `<!doctype html>
 <html>
@@ -193,19 +219,47 @@ export class EmailService {
 		} = { valid: true, reason: null };
 
 		if (this.meta.enableActiveEmailValidation) {
-			if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
-				validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+			// DNS/外部APIへの問い合わせを伴うため、結果を短時間キャッシュする
+			const cached = this.emailValidationCache.get(emailAddress);
+			if (cached !== undefined && cached.expiresAt > Date.now()) {
+				validated = cached.result;
+			} else if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
+				try {
+					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+				} catch (err) {
+					// API障害時にサインアップを妨げないよう、検証をスキップする
+					// なお、認証キー不正など設定起因のエラーは fail-open になり得るため error レベルで通知する
+					if (err instanceof StatusError && err.statusCode >= 400 && err.statusCode < 500) {
+						this.logger.error(`verifymail.io request failed (possibly misconfigured): ${err.message}`);
+					} else {
+						this.logger.warn(`verifymail.io request failed: ${err instanceof Error ? err.message : err}`);
+					}
+				}
 			} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
 				validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
 			} else {
-				const { validate: validateEmail } = await import('deep-email-validator');
-				validated = await validateEmail({
-					email: emailAddress,
-					validateRegex: true,
-					validateMx: true,
-					validateTypo: false, // TLDを見ているみたいだけどclubとか弾かれるので
-					validateDisposable: true, // 捨てアドかどうかチェック
-					validateSMTP: false, // 日本だと25ポートが殆どのプロバイダーで塞がれていてタイムアウトになるので
+				if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
+					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+				} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
+					validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
+				} else {
+					const { validate: validateEmail } = await import('deep-email-validator');
+					validated = await validateEmail({
+						email: emailAddress,
+						validateRegex: true,
+						validateMx: true,
+						validateTypo: false, // TLDを見ているみたいだけどclubとか弾かれるので
+						validateDisposable: true, // 捨てアドかどうかチェック
+						validateSMTP: false, // 日本だと25ポートが殆どのプロバイダーで塞がれていてタイムアウトになるので
+					});
+				}
+
+				if (this.emailValidationCache.size > 1024) {
+					this.emailValidationCache.clear();
+				}
+				this.emailValidationCache.set(emailAddress, {
+					expiresAt: Date.now() + 60_000,
+					result: validated,
 				});
 			}
 		}
@@ -246,7 +300,7 @@ export class EmailService {
 		valid: boolean;
 		reason: 'used' | 'format' | 'disposable' | 'mx' | 'smtp' | null;
 	}> {
-		const endpoint = 'https://verifymail.io/api/' + emailAddress + '?key=' + verifymailAuthKey;
+		const endpoint = 'https://verifymail.io/api/' + encodeURIComponent(emailAddress) + '?key=' + encodeURIComponent(verifymailAuthKey);
 		const res = await this.httpRequestService.send(endpoint, {
 			method: 'GET',
 			headers: {
@@ -315,7 +369,7 @@ export class EmailService {
 		valid: boolean;
 		reason: 'used' | 'format' | 'blacklist' | 'mx' | 'smtp' | 'network' | T | null;
 	}> {
-		const endpoint = truemailInstance + '?email=' + emailAddress;
+		const endpoint = truemailInstance + '?email=' + encodeURIComponent(emailAddress);
 		try {
 			const res = await this.httpRequestService.send(endpoint, {
 				method: 'POST',
@@ -368,10 +422,17 @@ export class EmailService {
 				valid: true,
 				reason: null,
 			};
-		} catch (_) {
+		} catch (err) {
+			// 通信エラー時に正当なユーザーを拒否しないよう、検証をスキップする
+			// なお、認証キー不正など設定起因のエラーは fail-open になり得るため error レベルで通知する
+			if (err instanceof StatusError && err.statusCode >= 400 && err.statusCode < 500) {
+				this.logger.error(`truemail request failed (possibly misconfigured): ${err.message}`);
+			} else {
+				this.logger.warn(`truemail request failed: ${err instanceof Error ? err.message : err}`);
+			}
 			return {
-				valid: false,
-				reason: 'network',
+				valid: true,
+				reason: null,
 			};
 		}
 	}

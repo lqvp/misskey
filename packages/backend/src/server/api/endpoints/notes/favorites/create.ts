@@ -4,12 +4,14 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import ms from 'ms';
 import type { NoteFavoritesRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { GetterService } from '@/server/api/GetterService.js';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { AchievementService } from '@/core/AchievementService.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { ApiError } from '../../../error.js';
@@ -86,11 +88,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// Create favorite
-			await this.noteFavoritesRepository.insert({
-				id: this.idService.gen(),
-				noteId: note.id,
-				userId: me.id,
-			});
+			try {
+				await this.noteFavoritesRepository.insert({
+					id: this.idService.gen(),
+					noteId: note.id,
+					userId: me.id,
+				});
+			} catch (e: unknown) {
+				if (e instanceof QueryFailedError && isDuplicateKeyValueError(e)) {
+					throw new ApiError(meta.errors.alreadyFavorited);
+				}
+
+				throw e;
+			}
 
 			if (note.userHost == null && note.userId !== me.id) {
 				this.achievementService.create(note.userId, 'myNoteFavorited1');

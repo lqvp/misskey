@@ -36,6 +36,7 @@ export class FileServerProxyHandler {
 		private fileResolver: FileServerFileResolver,
 		private assetsPath: string,
 		private imageProcessingService: ImageProcessingService,
+		private checkProxyRateLimit: (request: FastifyRequest) => Promise<boolean>,
 	) {}
 
 	public async handle(request: FastifyRequest<{ Params: { url: string }; Querystring: ProxyQuery }>, reply: FastifyReply) {
@@ -54,6 +55,13 @@ export class FileServerProxyHandler {
 		}
 
 		this.validateUserAgent(request);
+
+		// 外部プロキシにリダイレクトされた場合はフェッチしないため、
+		// レートリミットは実際にフェッチを行うパスのみに適用する
+		if (await this.checkProxyRateLimit(request)) {
+			reply.code(429);
+			return;
+		}
 
 		// Create temp file
 		const file = await this.getStreamAndTypeFromUrl(url);
@@ -238,18 +246,22 @@ export class FileServerProxyHandler {
 		reply: FastifyReply,
 	): IImageStreamable {
 		if (request.headers.range && 'file' in file && file.file.size > 0) {
-			const { stream, start, end, chunksize } = createRangeStream(request.headers.range as string, file.file.size, file.path);
+			const rangeStream = createRangeStream(request.headers.range as string, file.file.size, file.path);
 
-			reply.header('Content-Range', `bytes ${start}-${end}/${file.file.size}`);
-			reply.header('Accept-Ranges', 'bytes');
-			reply.header('Content-Length', chunksize);
-			reply.code(206);
+			if (rangeStream !== null) {
+				const { stream, start, end, chunksize } = rangeStream;
 
-			return {
-				data: stream,
-				ext: file.ext,
-				type: file.mime,
-			};
+				reply.header('Content-Range', `bytes ${start}-${end}/${file.file.size}`);
+				reply.header('Accept-Ranges', 'bytes');
+				reply.header('Content-Length', chunksize);
+				reply.code(206);
+
+				return {
+					data: stream,
+					ext: file.ext,
+					type: file.mime,
+				};
+			}
 		}
 
 		return {

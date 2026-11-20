@@ -86,6 +86,13 @@ const dropready = ref(false);
 const isMainColumn = computed(() => props.column.type === 'main');
 const active = computed(() => props.column.active !== false);
 
+const flexibleRef = ref(props.column.flexible ?? false);
+watch(flexibleRef, flexible => {
+	updateColumn(props.column.id, {
+		flexible,
+	});
+});
+
 onMounted(() => {
 	deckGlobalEvents.on('column.dragStart', onOtherDragStart);
 	deckGlobalEvents.on('column.dragEnd', onOtherDragEnd);
@@ -164,13 +171,7 @@ function getMenu() {
 		},
 	});
 
-	const flexibleRef = ref(props.column.flexible ?? false);
-
-	watch(flexibleRef, flexible => {
-		updateColumn(props.column.id, {
-			flexible,
-		});
-	});
+	flexibleRef.value = props.column.flexible ?? false;
 
 	menuItems.push({
 		type: 'switch',

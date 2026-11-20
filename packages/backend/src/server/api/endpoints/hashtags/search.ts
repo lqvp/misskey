@@ -28,8 +28,8 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
-		query: { type: 'string' },
-		offset: { type: 'integer', default: 0 },
+		query: { type: 'string', minLength: 1 },
+		offset: { type: 'integer', default: 0, minimum: 0, maximum: 100 },
 	},
 	required: ['query'],
 } as const;

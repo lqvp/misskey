@@ -77,12 +77,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					twoFactorEnabled: false,
 					usePasswordLessLogin: false,
 				});
-			}).then(() => {
-				this.moderationLogService.log(me, 'unsetMfa', {
-					userId: user.id,
-					userUsername: user.username,
-					userHost: user.host,
-				});
+			});
+
+			await this.moderationLogService.log(me, 'unsetMfa', {
+				userId: user.id,
+				userUsername: user.username,
+				userHost: user.host,
 			});
 		});
 	}

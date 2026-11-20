@@ -979,6 +979,9 @@ type ChannelsMuteDeleteRequest = operations['channels___mute___delete']['request
 type ChannelsMuteListResponse = operations['channels___mute___list']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
+type ChannelsMyFavoritesRequest = operations['channels___my-favorites']['requestBody']['content']['application/json'];
+
+// @public (undocumented)
 type ChannelsMyFavoritesResponse = operations['channels___my-favorites']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
@@ -1253,6 +1256,9 @@ type ClipsListRequest = operations['clips___list']['requestBody']['content']['ap
 
 // @public (undocumented)
 type ClipsListResponse = operations['clips___list']['responses']['200']['content']['application/json'];
+
+// @public (undocumented)
+type ClipsMyFavoritesRequest = operations['clips___my-favorites']['requestBody']['content']['application/json'];
 
 // @public (undocumented)
 type ClipsMyFavoritesResponse = operations['clips___my-favorites']['responses']['200']['content']['application/json'];
@@ -1735,6 +1741,7 @@ declare namespace entities {
         ChannelsMuteCreateRequest,
         ChannelsMuteDeleteRequest,
         ChannelsMuteListResponse,
+        ChannelsMyFavoritesRequest,
         ChannelsMyFavoritesResponse,
         ChannelsOwnedRequest,
         ChannelsOwnedResponse,
@@ -1819,6 +1826,7 @@ declare namespace entities {
         ClipsFavoriteRequest,
         ClipsListRequest,
         ClipsListResponse,
+        ClipsMyFavoritesRequest,
         ClipsMyFavoritesResponse,
         ClipsNotesRequest,
         ClipsNotesResponse,

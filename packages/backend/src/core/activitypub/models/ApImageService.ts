@@ -80,6 +80,16 @@ export class ApImageService {
 		if (!file.isLink || file.url === image.url) return file;
 
 		// URLが異なっている場合、同じ画像が以前に異なるURLで登録されていたということなので、URLを更新する
+		// ただしハッシュ一致した既存ファイルのURLを無条件に書き換えると、投稿者と無関係なホストのURLで
+		// 差し替えられる恐れがあるため、投稿者と同一ホストのURLに限定する
+		let imageHost: string | null = null;
+		try {
+			imageHost = new URL(image.url).host;
+		} catch {
+			return file;
+		}
+		if (imageHost !== new URL(actor.uri).host) return file;
+
 		await this.driveFilesRepository.update({ id: file.id }, { url: image.url, uri: image.url });
 		return await this.driveFilesRepository.findOneByOrFail({ id: file.id });
 	}

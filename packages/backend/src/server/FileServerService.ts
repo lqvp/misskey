@@ -10,6 +10,8 @@ import type { Config } from '@/config.js';
 import type { DriveFilesRepository } from '@/models/_.js';
 import { DI } from '@/di-symbols.js';
 import { StatusError } from '@/misc/status-error.js';
+import { RateLimiterService } from '@/server/api/RateLimiterService.js';
+import { getIpHash } from '@/misc/get-ip-hash.js';
 import type Logger from '@/logger.js';
 import { DownloadService } from '@/core/DownloadService.js';
 import { InternalStorageService } from '@/core/InternalStorageService.js';
@@ -46,6 +48,7 @@ export class FileServerService {
 		private videoProcessingService: VideoProcessingService,
 		private internalStorageService: InternalStorageService,
 		private loggerService: LoggerService,
+		private rateLimiterService: RateLimiterService,
 	) {
 		this.logger = this.loggerService.getLogger('server', 'gray');
 		this.assets = resolve(this.config.rootDir, 'packages/backend/src/server/file/assets');
@@ -66,6 +69,7 @@ export class FileServerService {
 			this.fileResolver,
 			this.assets,
 			this.imageProcessingService,
+			this.checkProxyRateLimit,
 		);
 
 		//this.createServer = this.createServer.bind(this);
@@ -104,11 +108,28 @@ export class FileServerService {
 			Params: { url: string; };
 			Querystring: { url?: string; };
 		}>('/proxy/:url*', async (request, reply) => {
+			// IP単位のレートリミットは、実際にフェッチ・画像処理を行うパスのみに適用する（ハンドラ内で判定）
 			return await this.proxyHandler.handle(request, reply)
 				.catch(err => this.errorHandler(request, reply, err));
 		});
 
 		done();
+	}
+
+	/**
+	 * /proxy のIP単位レートリミット。制限に掛かった場合は true を返す。
+	 */
+	@bindThis
+	public async checkProxyRateLimit(request: FastifyRequest): Promise<boolean> {
+		// 画像変換（sharp）を伴うため、無認証でCPU/ディスクが枯渇しないようIP単位のレートリミットを設ける
+		if (this.config.enableIpRateLimit) {
+			const rateLimit = await this.rateLimiterService.limit({ key: 'fileServerProxy', duration: 60 * 1000, max: 100 }, getIpHash(request.ip));
+			if (rateLimit != null) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	@bindThis

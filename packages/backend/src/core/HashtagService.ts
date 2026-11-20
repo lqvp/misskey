@@ -30,6 +30,28 @@ type UpdatingHashtagColumn = {
 	remoteUsersCount: keyof MiHashtag & `${AttachedOrMentioned}RemoteUsersCount`,
 };
 
+// SQLへの補間に使うため、実行時にもカラム名を検証する
+const hashtagColumnAllowlist = [
+	'attachedUserIds',
+	'attachedUsersCount',
+	'attachedLocalUserIds',
+	'attachedLocalUsersCount',
+	'attachedRemoteUserIds',
+	'attachedRemoteUsersCount',
+	'mentionedUserIds',
+	'mentionedUsersCount',
+	'mentionedLocalUserIds',
+	'mentionedLocalUsersCount',
+	'mentionedRemoteUserIds',
+	'mentionedRemoteUsersCount',
+] as const;
+
+function validateHashtagColumn(column: string): void {
+	if (!(hashtagColumnAllowlist as readonly string[]).includes(column)) {
+		throw new Error(`Invalid hashtag column: ${column}`);
+	}
+}
+
 @Injectable()
 export class HashtagService {
 	constructor(
@@ -110,6 +132,10 @@ export class HashtagService {
 		const localOrRemoteUserIds = isLocal ? columns.localUserIds : columns.remoteUserIds;
 		const localOrRemoteUserCount = isLocal ? columns.localUsersCount : columns.remoteUsersCount;
 
+		for (const column of [totalUserIds, totalUsersCount, localOrRemoteUserIds, localOrRemoteUserCount]) {
+			validateHashtagColumn(column);
+		}
+
 		const runner = this.db.createQueryRunner('master');
 		try {
 			await runner.query(
@@ -145,6 +171,10 @@ export class HashtagService {
 		const { totalUserIds, totalUsersCount } = columns;
 		const localOrRemoteUserIds = isLocal ? columns.localUserIds : columns.remoteUserIds;
 		const localOrRemoteUserCount = isLocal ? columns.localUsersCount : columns.remoteUsersCount;
+
+		for (const column of [totalUserIds, totalUsersCount, localOrRemoteUserIds, localOrRemoteUserCount]) {
+			validateHashtagColumn(column);
+		}
 
 		const runner = this.db.createQueryRunner('master');
 		try {
@@ -199,7 +229,7 @@ export class HashtagService {
 			'NX', // "NX -- Set expiry only when the key has no expiry" = 有効期限がないときだけ設定
 		);
 
-		redisPipeline.exec();
+		await redisPipeline.exec();
 	}
 
 	@bindThis
@@ -212,7 +242,7 @@ export class HashtagService {
 		for (let i = 0; i < range; i++) {
 			const window = `${now.getUTCFullYear()}${(now.getUTCMonth() + 1).toString().padStart(2, '0')}${now.getUTCDate().toString().padStart(2, '0')}${now.getUTCHours().toString().padStart(2, '0')}${now.getUTCMinutes().toString().padStart(2, '0')}`;
 			redisPipeline.pfcount(`hashtagUsers:${hashtag}:${window}`);
-			now.setMinutes(now.getMinutes() - (i * 10), 0, 0);
+			now.setMinutes(now.getMinutes() - 10, 0, 0);
 		}
 
 		const result = await redisPipeline.exec();
@@ -234,7 +264,7 @@ export class HashtagService {
 			for (const hashtag of hashtags) {
 				redisPipeline.pfcount(`hashtagUsers:${hashtag}:${window}`);
 			}
-			now.setMinutes(now.getMinutes() - (i * 10), 0, 0);
+			now.setMinutes(now.getMinutes() - 10, 0, 0);
 		}
 
 		const result = await redisPipeline.exec();

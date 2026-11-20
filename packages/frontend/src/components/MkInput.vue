@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			:list="id"
 			:min="min"
 			:max="max"
+			:maxlength="maxlength"
 			@focus="focused = true"
 			@blur="focused = false"
 			@keydown="onKeydown($event)"
@@ -79,6 +80,7 @@ const props = defineProps<{
 	datalist?: string[];
 	min?: number;
 	max?: number;
+	maxlength?: InputHTMLAttributes['maxlength'];
 	inline?: boolean;
 	debounce?: boolean | number;
 	throttle?: boolean | number;

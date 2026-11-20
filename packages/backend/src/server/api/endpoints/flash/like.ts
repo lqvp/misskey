@@ -6,6 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { FlashsRepository, FlashLikesRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '../../error.js';
@@ -82,13 +83,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// Create like
-			await this.flashLikesRepository.insert({
-				id: this.idService.gen(),
-				flashId: flash.id,
-				userId: me.id,
-			});
+			try {
+				await this.flashLikesRepository.insert({
+					id: this.idService.gen(),
+					flashId: flash.id,
+					userId: me.id,
+				});
+			} catch (e) {
+				if (isDuplicateKeyValueError(e)) {
+					throw new ApiError(meta.errors.alreadyLiked);
+				}
+				throw e;
+			}
 
-			this.flashsRepository.increment({ id: flash.id }, 'likedCount', 1);
+			await this.flashsRepository.increment({ id: flash.id }, 'likedCount', 1);
 		});
 	}
 }

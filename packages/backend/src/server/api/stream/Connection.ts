@@ -46,6 +46,8 @@ import type { EventEmitter } from 'events';
 
 const MAX_CHANNELS_PER_CONNECTION = 32;
 const MAX_SUBSCRIBING_NOTES_PER_CONNECTION = 1536;
+// 同一ノートへの購読は1コネクション内で多くて数コンポーネント分なので、上限を設けてカウンタの無限増加を防ぐ
+const MAX_NOTE_SUBSCRIPTION_REFS_PER_NOTE = 16;
 const MAX_BUFFERED_AMOUNT_PER_CONNECTION = 1024 * 1024 * 8; // 8MiB
 
 /**
@@ -157,7 +159,7 @@ export default class Connection {
 		const { type, body } = obj;
 
 		switch (type) {
-			case 'readNotification': this.onReadNotification(body); break;
+			case 'readNotification': await this.onReadNotification(body); break;
 			case 'subNote': this.onSubscribeNote(body); break;
 			case 's': this.onSubscribeNote(body); break; // alias
 			case 'sr': this.onSubscribeNote(body); break;
@@ -176,8 +178,10 @@ export default class Connection {
 	}
 
 	@bindThis
-	private onReadNotification(payload: JsonValue | undefined) {
-		this.notificationService.readAllNotification(this.user!.id);
+	private async onReadNotification(payload: JsonValue | undefined) {
+		// 未認証（ゲスト）接続では通知の既読処理は行えない
+		if (this.user == null) return;
+		await this.notificationService.readAllNotification(this.user.id);
 	}
 
 	/**
@@ -189,6 +193,14 @@ export default class Connection {
 		if (!payload.id || typeof payload.id !== 'string') return;
 
 		const current = this.subscribingNotes.get(payload.id) ?? 0;
+
+		// 同一コンポーネントが複数回購読しても1参照として扱い、カウンタの無限増加を防ぐ
+		if (current >= MAX_NOTE_SUBSCRIPTION_REFS_PER_NOTE) {
+			// access 順を更新して LRU を保つ
+			this.subscribingNotes.delete(payload.id);
+			this.subscribingNotes.set(payload.id, current);
+			return;
+		}
 
 		if (current === 0 && this.subscribingNotes.size >= MAX_SUBSCRIBING_NOTES_PER_CONNECTION) {
 			// 新規購読 かつ 購読上限に達している場合は、最も古い購読を解除して新規購読を追加する
@@ -291,7 +303,15 @@ export default class Connection {
 
 		// 受信が追いつかないクライアントのために送信バッファを溜め続けないよう、閾値を超えたら切断して再接続させる
 		if (this.wsConnection.bufferedAmount + Buffer.byteLength(message) > MAX_BUFFERED_AMOUNT_PER_CONNECTION) {
-			this.wsConnection.terminate();
+			// クライアントに理由を通知してから切断する（原因不明切断による再接続ストームの抑制）
+			// closeフレームがフラッシュされる前に terminate すると届かないため、猶予を置いてフォールバックする
+			const forceTerminateTimer = setTimeout(() => {
+				this.wsConnection.terminate();
+			}, 5000);
+			this.wsConnection.once('close', () => {
+				clearTimeout(forceTerminateTimer);
+			});
+			this.wsConnection.close(1013, 'Buffer overflow');
 			return;
 		}
 
@@ -311,7 +331,13 @@ export default class Connection {
 			return;
 		}
 
-		const channelConstructor = this.getChannelConstructor(channel);
+		// 不明なチャンネル名で例外が投げられるため、ここで捕捉して接続を維持する
+		let channelConstructor: ChannelConstructor<boolean>;
+		try {
+			channelConstructor = this.getChannelConstructor(channel);
+		} catch {
+			return;
+		}
 
 		if (channelConstructor.requireCredential && this.user == null) {
 			return;

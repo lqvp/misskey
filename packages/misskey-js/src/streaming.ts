@@ -168,7 +168,16 @@ export default class Stream extends EventEmitter<StreamEvents> implements IStrea
 	 * Callback of when received a message from connection
 	 */
 	private onMessage(message: { data: string; }): void {
-		const { type, body } = JSON.parse(message.data);
+		let parsed: any;
+
+		try {
+			parsed = JSON.parse(message.data);
+		} catch {
+			// Non-JSON frames (e.g. from a proxy or middleware) must not break the stream.
+			return;
+		}
+
+		const { type, body } = parsed;
 
 		if (type === 'channel') {
 			const id = body.id;

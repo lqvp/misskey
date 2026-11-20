@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			<MkCustomEmoji v-if="'isCustomEmoji' in emoji && emoji.isCustomEmoji" :name="emoji.emoji" :class="$style.emoji" :fallbackToImage="true"/>
 			<MkEmoji v-else :emoji="emoji.emoji" :class="$style.emoji"/>
 			<!-- eslint-disable-next-line vue/no-v-html -->
-			<span v-if="q != null && typeof q === 'string'" :class="$style.emojiName" v-html="sanitizeHtml(emoji.name.replace(q, `<b>${q}</b>`))"></span>
+			<span v-if="q != null && typeof q === 'string'" :class="$style.emojiName" v-html="highlightEmojiName(emoji.name, q)"></span>
 			<span v-else v-text="emoji.name"></span>
 			<span v-if="emoji.aliasOf" :class="$style.emojiAlias">({{ emoji.aliasOf }})</span>
 		</li>
@@ -195,6 +195,22 @@ const mfmParams = ref<string[]>([]);
 const select = ref(-1);
 const zIndex = os.claimZIndex('high');
 
+function highlightEmojiName(name: string, q: string): string {
+	// 置換文字列内では $& や $' などが特殊な意味を持つため、検索語内の $ をエスケープする
+	const escapedQ = q.replaceAll('$', '$$$$');
+	return sanitizeHtml(name.replace(q, `<b>${escapedQ}</b>`));
+}
+
+// sessionStorage のキャッシュは壊れた JSON の場合があるため、パース失敗時はキャッシュミスとして扱う
+function parseSessionCache<T>(cache: string, cacheKey: string): T | null {
+	try {
+		return JSON.parse(cache) as T;
+	} catch {
+		sessionStorage.removeItem(cacheKey);
+		return null;
+	}
+}
+
 function completeMfmParam(param: string) {
 	if (props.type !== 'mfmParam') throw new Error('Invalid type');
 	complete('mfmParam', props.q.params.toSpliced(-1, 1, param).join(','));
@@ -244,8 +260,10 @@ function exec() {
 		const cacheKey = `autocomplete:user:${props.q}`;
 		const cache = sessionStorage.getItem(cacheKey);
 
-		if (cache) {
-			users.value = JSON.parse(cache);
+		const cachedUsers = cache != null ? parseSessionCache<Misskey.entities.User[]>(cache, cacheKey) : null;
+
+		if (cachedUsers) {
+			users.value = cachedUsers;
 			fetching.value = false;
 		} else {
 			const [username, host] = props.q.toString().split('@');
@@ -263,14 +281,18 @@ function exec() {
 		}
 	} else if (props.type === 'hashtag') {
 		if (!props.q || props.q === '') {
-			hashtags.value = JSON.parse(miLocalStorage.getItem('hashtags') ?? '[]');
+			try {
+				hashtags.value = JSON.parse(miLocalStorage.getItem('hashtags') ?? '[]');
+			} catch {
+				hashtags.value = [];
+			}
 			fetching.value = false;
 		} else {
 			const cacheKey = `autocomplete:hashtag:${props.q}`;
 			const cache = sessionStorage.getItem(cacheKey);
-			if (cache) {
-				const hashtags = JSON.parse(cache);
-				hashtags.value = hashtags;
+			const cachedHashtags = cache != null ? parseSessionCache<string[]>(cache, cacheKey) : null;
+			if (cachedHashtags) {
+				hashtags.value = cachedHashtags;
 				fetching.value = false;
 			} else {
 				misskeyApi('hashtags/search', {

@@ -5,7 +5,7 @@
 
 import { Inject, Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
-import type { AppsRepository, AccessTokensRepository, AuthSessionsRepository } from '@/models/_.js';
+import type { MiAccessToken, AppsRepository, AccessTokensRepository, AuthSessionsRepository } from '@/models/_.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '../../../error.js';
@@ -49,6 +49,13 @@ export const meta = {
 			message: 'This session is not completed yet.',
 			code: 'PENDING_SESSION',
 			id: '8c8a4145-02cc-4cca-8e66-29ba60445a8e',
+		},
+
+		noSuchAccessToken: {
+			message: 'No such access token.',
+			code: 'NO_SUCH_ACCESS_TOKEN',
+			id: 'f7a0ab2f-01f4-4b20-9c2b-a92a4c6efb3c',
+			httpStatusCode: 404,
 		},
 	},
 } as const;
@@ -101,13 +108,18 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// Lookup access token
-			const accessToken = await this.accessTokensRepository.findOneByOrFail({
-				appId: app.id,
-				userId: session.userId,
-			});
+			let accessToken: MiAccessToken | undefined;
+			try {
+				accessToken = await this.accessTokensRepository.findOneByOrFail({
+					appId: app.id,
+					userId: session.userId,
+				});
+			} catch (err) {
+				throw new ApiError(meta.errors.noSuchAccessToken);
+			}
 
 			// Delete session
-			this.authSessionsRepository.delete(session.id);
+			await this.authSessionsRepository.delete(session.id);
 
 			return {
 				accessToken: accessToken.token,

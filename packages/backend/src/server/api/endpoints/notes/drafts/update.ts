@@ -190,7 +190,8 @@ export const paramDef = {
 	properties: {
 		draftId: { type: 'string', nullable: false, format: 'misskey:id' },
 		visibility: { type: 'string', enum: ['public', 'home', 'followers', 'specified'] },
-		visibleUserIds: { type: 'array', uniqueItems: true, items: {
+		// notes/createのvisibleUserIds上限と揃える
+		visibleUserIds: { type: 'array', uniqueItems: true, maxItems: 100, items: {
 			type: 'string', format: 'misskey:id',
 		} },
 		cw: { type: 'string', nullable: true, minLength: 1, maxLength: 100 },

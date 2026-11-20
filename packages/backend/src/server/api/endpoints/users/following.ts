@@ -118,7 +118,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.noSuchUser);
 			}
 
-			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
+			const profile = await this.userProfilesRepository.findOneBy({ userId: user.id });
+
+			if (profile == null) {
+				throw new ApiError(meta.errors.noSuchUser);
+			}
 
 			if (profile.followingVisibility !== 'public' && !await this.roleService.isModerator(me)) {
 				if (profile.followingVisibility === 'private') {

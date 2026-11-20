@@ -11,6 +11,7 @@ import type { Packed } from '@/misc/json-schema.js';
 import { awaitAll } from '@/misc/prelude/await-all.js';
 import type { MiUser } from '@/models/User.js';
 import type { MiNote } from '@/models/Note.js';
+import type { MiChannel } from '@/models/Channel.js';
 import type { UsersRepository, NotesRepository, FollowingsRepository, PollsRepository, PollVotesRepository, NoteReactionsRepository, ChannelsRepository, MiMeta } from '@/models/_.js';
 import { bindThis } from '@/decorators.js';
 import { DebounceLoader } from '@/misc/loader.js';
@@ -24,6 +25,16 @@ import type { CustomEmojiService } from '../CustomEmojiService.js';
 import type { ReactionService } from '../ReactionService.js';
 import type { UserEntityService } from './UserEntityService.js';
 import type { DriveFileEntityService } from './DriveFileEntityService.js';
+
+/**
+ * `isVisibleForMe` の判定に必要な情報を先読みしたもの。省略時は都度クエリする。
+ */
+type NoteVisibilityContext = {
+	/** me がフォローしている投稿者の ID 集合 */
+	followedAuthorIds: Set<MiUser['id']>;
+	/** me のホスト (ローカルなら null) */
+	meHost: string | null;
+};
 
 // is-renote.tsとよしなにリンク
 function isPureRenote(note: MiNote): note is MiNote & { renoteId: MiNote['id']; renote: MiNote } {
@@ -304,8 +315,33 @@ export class NoteEntityService implements OnModuleInit {
 		};
 	}
 
+	/**
+	 * `isVisibleForMe` の followers 分岐が必要とする情報を、ノート一覧からまとめて先読みする。
+	 * 複数ノートに対して `isVisibleForMe` を呼ぶときは、これを1回作って渡すことで N+1 を避ける。
+	 */
 	@bindThis
-	public async isVisibleForMe(note: MiNote, meId: MiUser['id'] | null): Promise<boolean> {
+	private async buildVisibilityContext(notes: Pick<MiNote, 'userId' | 'visibility'>[], meId: MiUser['id'] | null): Promise<NoteVisibilityContext | undefined> {
+		if (meId == null) return undefined;
+
+		// followers 可視性のノートに現れる投稿者だけを対象にする
+		const authorIds = [...new Set(
+			notes.filter(note => note.visibility === 'followers').map(note => note.userId),
+		)];
+		if (authorIds.length === 0) return undefined;
+
+		const [followings, me] = await Promise.all([
+			this.followingsRepository.findBy({ followerId: meId, followeeId: In(authorIds) }),
+			this.usersRepository.findOneBy({ id: meId }),
+		]);
+
+		return {
+			followedAuthorIds: new Set(followings.map(it => it.followeeId)),
+			meHost: me?.host ?? null,
+		};
+	}
+
+	@bindThis
+	public async isVisibleForMe(note: MiNote, meId: MiUser['id'] | null, context?: NoteVisibilityContext): Promise<boolean> {
 		// This code must always be synchronized with the checks in QueryService.generateVisibilityQuery.
 		// visibility が specified かつ自分が指定されていなかったら非表示
 		if (note.visibility === 'specified') {
@@ -333,16 +369,14 @@ export class NoteEntityService implements OnModuleInit {
 				return true;
 			} else {
 				// フォロワーかどうか
-				const [following, user] = await Promise.all([
-					this.followingsRepository.count({
-						where: {
-							followeeId: note.userId,
-							followerId: meId,
-						},
-						take: 1,
-					}),
-					this.usersRepository.findOneByOrFail({ id: meId }),
-				]);
+				// shouldHideNote と同じく userFollowingsCache を使う (follow / unfollow で refresh される)
+				const isFollowing = context != null
+					// 事前にまとめて取得済みの情報から判定する (context には followers 可視性の投稿者が全て含まれている)
+					? context.followedAuthorIds.has(note.userId)
+					: Object.hasOwn(await this.cacheService.userFollowingsCache.fetch(meId), note.userId);
+				const userHost = context != null
+					? context.meHost
+					: (await this.cacheService.findUserById(meId)).host;
 
 				/* If we know the following, everyhting is fine.
 
@@ -351,7 +385,7 @@ export class NoteEntityService implements OnModuleInit {
 				in which case we can never know the following. Instead we have
 				to assume that the users are following each other.
 				*/
-				return following > 0 || (note.userHost != null && user.host != null);
+				return isFollowing || (note.userHost != null && userHost != null);
 			}
 		}
 
@@ -385,7 +419,8 @@ export class NoteEntityService implements OnModuleInit {
 				bufferedReactions: Map<MiNote['id'], { deltas: Record<string, number>; pairs: ([MiUser['id'], string])[] }> | null;
 				myReactions: Map<MiNote['id'], string | null>;
 				packedFiles: Map<MiNote['fileIds'][number], Packed<'DriveFile'> | null>;
-				packedUsers: Map<MiUser['id'], Packed<'UserLite'>>
+				packedUsers: Map<MiUser['id'], Packed<'UserLite'>>;
+				channels: Map<MiNote['channelId'], MiChannel>;
 			};
 		},
 	): Promise<Packed<'Note'>> {
@@ -417,7 +452,7 @@ export class NoteEntityService implements OnModuleInit {
 		const channel = note.channelId
 			? note.channel
 				? note.channel
-				: await this.channelsRepository.findOneBy({ id: note.channelId })
+				: (opts._hint_?.channels?.get(note.channelId) ?? await this.channelsRepository.findOneBy({ id: note.channelId }))
 			: null;
 
 		const reactionEmojiNames = Object.keys(reactions)
@@ -425,6 +460,17 @@ export class NoteEntityService implements OnModuleInit {
 			.map(x => this.reactionService.decodeReaction(x).reaction.replaceAll(':', ''));
 		const packedFiles = options?._hint_?.packedFiles;
 		const packedUsers = options?._hint_?.packedUsers;
+
+		// 閲覧者がブロック・ミュートしているユーザーのノートは reply/renote としてパックしない
+		// (タイムラインでは generateBaseNoteFilteringQuery で除外されるが、pack() の再帰パックには適用されていない)
+		let hiddenUserIds: Set<string> | null = null;
+		if (meId != null && (note.replyId != null || note.renoteId != null)) {
+			const [userIdsWhoBlockingMe, userIdsWhoMeMuting] = await Promise.all([
+				this.cacheService.userBlockedCache.fetch(meId),
+				this.cacheService.userMutingsCache.fetch(meId),
+			]);
+			hiddenUserIds = new Set([...userIdsWhoBlockingMe, ...userIdsWhoMeMuting]);
+		}
 
 		const packed: Packed<'Note'> = await awaitAll({
 			id: note.id,
@@ -467,20 +513,20 @@ export class NoteEntityService implements OnModuleInit {
 				clippedCount: note.clippedCount,
 
 				// そもそもJOINしていない場合はundefined、JOINしたけど存在していなかった場合はnullで区別される
-				reply: (note.replyId && note.reply === null) ? null : note.replyId ? nullIfEntityNotFound(this.pack(note.reply ?? note.replyId, me, {
+				reply: (note.replyId && note.reply === null) ? null : note.replyId ? (hiddenUserIds != null && note.replyUserId != null && hiddenUserIds.has(note.replyUserId) ? null : nullIfEntityNotFound(this.pack(note.reply ?? note.replyId, me, {
 					detail: false,
 					skipHide: opts.skipHide,
 					withReactionAndUserPairCache: opts.withReactionAndUserPairCache,
 					_hint_: options?._hint_,
-				})) : undefined,
+				}))) : undefined,
 
 				// そもそもJOINしていない場合はundefined、JOINしたけど存在していなかった場合はnullで区別される
-				renote: (note.renoteId && note.renote === null) ? null : note.renoteId ? nullIfEntityNotFound(this.pack(note.renote ?? note.renoteId, me, {
+				renote: (note.renoteId && note.renote === null) ? null : note.renoteId ? (hiddenUserIds != null && note.renoteUserId != null && hiddenUserIds.has(note.renoteUserId) ? null : nullIfEntityNotFound(this.pack(note.renote ?? note.renoteId, me, {
 					detail: true,
 					skipHide: opts.skipHide,
 					withReactionAndUserPairCache: opts.withReactionAndUserPairCache,
 					_hint_: options?._hint_,
-				})) : undefined,
+				}))) : undefined,
 
 				poll: note.hasPoll ? this.populatePoll(note, meId) : undefined,
 
@@ -584,6 +630,12 @@ export class NoteEntityService implements OnModuleInit {
 		const packedUsers = await this.userEntityService.packMany(users, me)
 			.then(users => new Map(users.map(u => [u.id, u])));
 
+		const channelIds = notes.map(n => n.channelId).filter((x): x is NonNullable<MiNote['channelId']> => x != null);
+		const channels = channelIds.length > 0
+			? await this.channelsRepository.findBy({ id: In(channelIds) })
+				.then(channels => new Map(channels.map(c => [c.id as MiNote['channelId'], c])))
+			: new Map<MiNote['channelId'], MiChannel>();
+
 		return await Promise.all(notes.map(n => this.pack(n, me, {
 			...options,
 			_hint_: {
@@ -591,6 +643,7 @@ export class NoteEntityService implements OnModuleInit {
 				myReactions: myReactionsMap,
 				packedFiles,
 				packedUsers,
+				channels,
 			},
 		})));
 	}
@@ -654,9 +707,13 @@ export class NoteEntityService implements OnModuleInit {
 			},
 		});
 
+		// isVisibleForMe の followers 分岐は「me が投稿者をフォローしているか」を毎回 DB に問い合わせるため、
+		// ノート数だけクエリが増える (N+1)。ここで投稿者一覧をまとめて1回引いておき、ループ内では再利用する。
+		const visibilityContext = await this.buildVisibilityContext(fetched, meId);
+
 		const notes: MiNote[] = [];
 		for (const note of fetched) {
-			if (await this.isVisibleForMe(note, meId)) {
+			if (await this.isVisibleForMe(note, meId, visibilityContext)) {
 				notes.push(note);
 			}
 		}

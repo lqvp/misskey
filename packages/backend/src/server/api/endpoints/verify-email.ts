@@ -14,6 +14,11 @@ import { ApiError } from '../error.js';
 export const meta = {
 	requireCredential: false,
 
+	limit: {
+		duration: 60 * 60 * 1000,
+		max: 30,
+	},
+
 	tags: ['account'],
 
 	errors: {

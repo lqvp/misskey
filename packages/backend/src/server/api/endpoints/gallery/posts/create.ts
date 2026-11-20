@@ -4,6 +4,7 @@
  */
 
 import ms from 'ms';
+import { In } from 'typeorm';
 import { Inject, Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { DriveFilesRepository, GalleryPostsRepository } from '@/models/_.js';
@@ -64,12 +65,13 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private idService: IdService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const files = (await Promise.all(ps.fileIds.map(fileId =>
-				this.driveFilesRepository.findOneBy({
-					id: fileId,
+			const filesMap = new Map((await this.driveFilesRepository.find({
+				where: {
+					id: In(ps.fileIds),
 					userId: me.id,
-				}),
-			))).filter(x => x != null);
+				},
+			})).map(file => [file.id, file]));
+			const files = ps.fileIds.map(fileId => filesMap.get(fileId)).filter(x => x != null);
 
 			if (files.length === 0) {
 				throw new Error();

@@ -4,13 +4,14 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { Brackets } from 'typeorm';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { EmojisRepository } from '@/models/_.js';
 import type { MiEmoji } from '@/models/Emoji.js';
 import { QueryService } from '@/core/QueryService.js';
 import { DI } from '@/di-symbols.js';
 import { EmojiEntityService } from '@/core/entities/EmojiEntityService.js';
-//import { sqlLikeEscape } from '@/misc/sql-like-escape.js';
+import { sqlLikeEscape } from '@/misc/sql-like-escape.js';
 
 export const meta = {
 	tags: ['admin'],
@@ -58,23 +59,24 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			let emojis: MiEmoji[];
 
 			if (ps.query) {
-				//q.andWhere('emoji.name ILIKE :q', { q: `%${ sqlLikeEscape(ps.query) }%` });
-				//const emojis = await q.limit(ps.limit).getMany();
-
-				emojis = await q.getMany();
 				const queryarry = ps.query.match(/\:([a-z0-9_]*)\:/g);
 
 				if (queryarry) {
-					emojis = emojis.filter(emoji =>
-						queryarry.includes(`:${emoji.name}:`),
-					);
+					// ":name:" 形式のクエリの場合は、名前のリストとして扱う
+					emojis = await q
+						.andWhere('emoji.name IN (:...names)', { names: queryarry.map(x => x.slice(1, -1)) })
+						.limit(ps.limit)
+						.getMany();
 				} else {
-					emojis = emojis.filter(emoji =>
-						emoji.name.includes(ps.query!) ||
-						emoji.aliases.some(a => a.includes(ps.query!)) ||
-						emoji.category?.includes(ps.query!));
+					const query = ps.query;
+					q.andWhere(new Brackets(qb => {
+						qb
+							.where('emoji.name ILIKE :q', { q: `%${ sqlLikeEscape(query) }%` })
+							.orWhere('emoji.aliases::text ILIKE :q', { q: `%${ sqlLikeEscape(query) }%` })
+							.orWhere('emoji.category ILIKE :q', { q: `%${ sqlLikeEscape(query) }%` });
+					}));
+					emojis = await q.limit(ps.limit).getMany();
 				}
-				emojis.splice(ps.limit + 1);
 			} else {
 				emojis = await q.limit(ps.limit).getMany();
 			}

@@ -3,11 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import {
-	FindOneOptions,
-	ObjectLiteral,
-	Repository,
-} from 'typeorm';
+import { FindOneOptions, InsertQueryBuilder, ObjectLiteral, QueryRunner, ReplicationMode, Repository, SelectQueryBuilder } from 'typeorm';
+import { RelationIdLoader } from 'typeorm/query-builder/relation-id/RelationIdLoader.js';
+import { RawSqlResultsToEntityTransformer } from 'typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer.js';
 import { MiAbuseReportNotificationRecipient } from '@/models/AbuseReportNotificationRecipient.js';
 import { MiAbuseUserReport } from '@/models/AbuseUserReport.js';
 import { MiAccessToken } from '@/models/AccessToken.js';
@@ -86,13 +84,97 @@ import { MiUserSecurityKey } from '@/models/UserSecurityKey.js';
 import { MiWebhook } from '@/models/Webhook.js';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
 
+interface AsyncDisposableReference<T> extends AsyncDisposable {
+	readonly value: T;
+}
+
+// SEEALSO: <https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html#using-declarations-and-explicit-resource-management>
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose');
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
+Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose');
+
 export interface MiRepository<T extends ObjectLiteral> {
+	createTableColumnNames(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>): string[];
+	createTableColumnNamesWithPrimaryKey(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>): string[];
 	insertOne(this: Repository<T> & MiRepository<T>, entity: QueryDeepPartialEntity<T>, findOptions?: Pick<FindOneOptions<T>, 'relations'>): Promise<T>;
+	selectAliasColumnNames(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>, builder: SelectQueryBuilder<T>): void;
+	useQueryRunner(this: Repository<T> & MiRepository<T>, mode: ReplicationMode): AsyncDisposableReference<QueryRunner>;
 }
 
 export const miRepository = {
+	createTableColumnNames(queryBuilder) {
+		// @ts-expect-error -- protected
+		const insertedColumns = queryBuilder.getInsertedColumns();
+		if (insertedColumns.length) {
+			return insertedColumns.map(column => column.databaseName);
+		}
+		if (!queryBuilder.expressionMap.mainAlias?.hasMetadata && !queryBuilder.expressionMap.insertColumns.length) {
+			// @ts-expect-error -- protected
+			const valueSets = queryBuilder.getValueSets();
+			if (valueSets.length === 1) {
+				return Object.keys(valueSets[0]);
+			}
+		}
+		return queryBuilder.expressionMap.insertColumns;
+	},
+	createTableColumnNamesWithPrimaryKey(queryBuilder) {
+		const columnNames = this.createTableColumnNames(queryBuilder);
+		if (!columnNames.includes('id')) {
+			columnNames.unshift('id');
+		}
+		return columnNames;
+	},
 	async insertOne(entity, findOptions?) {
-		return await this.insert(entity).then(x => this.findOneOrFail({ where: x.identifiers[0], ...findOptions }));
+		await using queryRunnerADR = this.useQueryRunner('master');
+		const queryRunner = queryRunnerADR.value;
+		const queryBuilder = this.createQueryBuilder(undefined, queryRunner).insert().values(entity);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const mainAlias = queryBuilder.expressionMap.mainAlias!;
+		const name = mainAlias.name;
+		mainAlias.name = 't';
+		const columnNames = this.createTableColumnNamesWithPrimaryKey(queryBuilder);
+		queryBuilder.returning(columnNames.reduce((a, c) => `${a}, ${queryBuilder.escape(c)}`, '').slice(2));
+		const builder = this.createQueryBuilder(undefined, queryRunner).addCommonTableExpression(queryBuilder, 'cte', { columnNames });
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		builder.expressionMap.mainAlias!.tablePath = 'cte';
+		this.selectAliasColumnNames(queryBuilder, builder);
+		if (findOptions) {
+			builder.setFindOptions(findOptions);
+		}
+		const raw = await builder.execute();
+		mainAlias.name = name;
+		const relationId = await new RelationIdLoader(builder.connection, queryRunner, builder.expressionMap.relationIdAttributes).load(raw);
+		const result = new RawSqlResultsToEntityTransformer(builder.expressionMap, builder.connection.driver, relationId, queryRunner).transform(raw, mainAlias);
+		return result[0];
+	},
+	selectAliasColumnNames(queryBuilder, builder) {
+		let selectOrAddSelect = (selection: string, selectionAliasName?: string) => {
+			selectOrAddSelect = (selection, selectionAliasName) => builder.addSelect(selection, selectionAliasName);
+			return builder.select(selection, selectionAliasName);
+		};
+		for (const columnName of this.createTableColumnNamesWithPrimaryKey(queryBuilder)) {
+			selectOrAddSelect(`${builder.alias}.${columnName}`, `${builder.alias}_${columnName}`);
+		}
+	},
+	useQueryRunner(mode) {
+		if (this.queryRunner?.getReplicationMode() === mode) {
+			return {
+				value: this.queryRunner,
+				[Symbol.asyncDispose]() {
+					return Promise.resolve();
+				},
+			};
+		}
+		const queryRunner = this.manager.connection.createQueryRunner(mode);
+		return {
+			value: queryRunner,
+			[Symbol.asyncDispose]() {
+				return queryRunner.release();
+			},
+		};
 	},
 } satisfies MiRepository<ObjectLiteral>;
 

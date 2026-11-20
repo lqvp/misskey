@@ -6,6 +6,7 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { Brackets, EntityNotFoundError, IsNull, Not } from 'typeorm';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import type { MiUser } from '@/models/User.js';
 import type { AnnouncementReadsRepository, AnnouncementsRepository, MiAnnouncement, MiAnnouncementRead, UsersRepository } from '@/models/_.js';
 import { bindThis } from '@/decorators.js';
@@ -280,8 +281,9 @@ export class AnnouncementService implements OnModuleInit {
 				announcementId: announcementId,
 				userId: user.id,
 			});
-		} catch (_) {
-			return;
+		} catch (err) {
+			// 既に読了済み（重複キー）の場合のみ読了扱いとして続行し、それ以外のエラーは握りつぶさない
+			if (!isDuplicateKeyValueError(err)) throw err;
 		}
 
 		const announcement = await this.announcementsRepository.findOneBy({ id: announcementId });

@@ -72,7 +72,8 @@ export const paramDef = {
 				{
 					type: 'object',
 					properties: {
-						userIds: { type: 'array', uniqueItems: true, items: {
+						// 既存のspecifiedノートのvisibleUserIdsは100件を超え得るため、100件では復元時に壊れる
+						userIds: { type: 'array', uniqueItems: true, maxItems: 1000, items: {
 							type: 'string', format: 'misskey:id',
 						} },
 					},

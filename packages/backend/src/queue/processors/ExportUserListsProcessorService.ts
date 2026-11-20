@@ -62,17 +62,27 @@ export class ExportUserListsProcessorService {
 		try {
 			const stream = fs.createWriteStream(path, { flags: 'a' });
 
+			const allMemberships = await this.userListMembershipsRepository.findBy({
+				userListId: In(lists.map(list => list.id)),
+			});
+			const users = await this.usersRepository.findBy({
+				id: In(allMemberships.map(m => m.userId)),
+			});
+			const usersMap = new Map(users.map(u => [u.id, u]));
+
 			for (const list of lists) {
-				const memberships = await this.userListMembershipsRepository.findBy({ userListId: list.id });
-				const users = await this.usersRepository.findBy({
-					id: In(memberships.map(j => j.userId)),
-				});
+				const memberships = allMemberships.filter(m => m.userListId === list.id);
 				const usersWithReplies = new Set(memberships.filter(m => m.withReplies).map(m => m.userId));
 
-				for (const u of users) {
+				for (const membership of memberships) {
+					const u = usersMap.get(membership.userId);
+					if (u == null) {
+						continue;
+					}
 					const acct = this.utilityService.getFullApAccount(u.username, u.host);
 					// 3rd column and later will be key=value pairs
-					const content = `${list.name},${acct},withReplies=${usersWithReplies.has(u.id)}`;
+					// リスト名はユーザーが自由に設定できるため、CSV数式インジェクションを防ぐ
+					const content = `${formatCsvCell(list.name)},${acct},withReplies=${usersWithReplies.has(u.id)}`;
 					await new Promise<void>((res, rej) => {
 						stream.write(content + '\n', err => {
 							if (err) {
@@ -86,7 +96,11 @@ export class ExportUserListsProcessorService {
 				}
 			}
 
-			stream.end();
+			await new Promise<void>((resolve, reject) => {
+				// ストリームのエラーが放置されると promise が未解決のまま残るためリスンしておく
+				stream.once('error', reject);
+				stream.end(() => resolve());
+			});
 			this.logger.succ(`Exported to: ${path}`);
 
 			const fileName = 'user-lists-' + dateFormat(new Date(), 'yyyy-MM-dd-HH-mm-ss') + '.csv';
@@ -102,4 +116,16 @@ export class ExportUserListsProcessorService {
 			cleanup();
 		}
 	}
+}
+
+/**
+ * ユーザーが自由に設定できる文字列をCSVフィールドとして書き出す際、
+ * カンマ等を含む場合はクォートし、数式インジェクション（=、+、-、@ 始まり）を防ぐためにシングルクォートを前置する。
+ */
+function formatCsvCell(value: string): string {
+	const escaped = /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+	if (/^[=+\-@\t\r]/.test(escaped)) {
+		return `'${escaped}`;
+	}
+	return escaped;
 }

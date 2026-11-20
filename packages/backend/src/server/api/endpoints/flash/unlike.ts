@@ -68,7 +68,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			// Delete like
 			await this.flashLikesRepository.delete(exist.id);
 
-			this.flashsRepository.decrement({ id: flash.id }, 'likedCount', 1);
+			await this.flashsRepository.decrement({ id: flash.id }, 'likedCount', 1);
 		});
 	}
 }

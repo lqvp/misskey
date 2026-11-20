@@ -120,6 +120,7 @@ import MkInfo from '@/components/MkInfo.vue';
 import MkLink from '@/components/MkLink.vue';
 import { confetti } from '@/utility/confetti.js';
 import { qrOptions } from '@/utility/qr-code.js';
+import { sanitizeSvg } from '@/utility/sanitize-svg.js';
 import { ensureSignin } from '@/i.js';
 
 const $i = ensureSignin();
@@ -135,11 +136,11 @@ const emit = defineEmits<{
 const dialog = useTemplateRef('dialog');
 const page = ref(0);
 const token = ref<string | null>(null);
-const qrSvg = computed(() => qrcode(props.twoFactorData.url, {
+const qrSvg = computed(() => sanitizeSvg(qrcode(props.twoFactorData.url, {
 	...qrOptions,
 	color: '#000',
 	background: 'transparent',
-}));
+})));
 const backupCodes = ref<string[]>();
 
 function cancel() {
