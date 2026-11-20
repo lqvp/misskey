@@ -698,31 +698,33 @@ export class UserEntityService implements OnModuleInit {
 			profilesMap = await this.userProfilesRepository.findBy({ userId: In(_userIds) })
 				.then(profiles => new Map(profiles.map(p => [p.userId, p])));
 
-			const meId = me ? me.id : null;
-			if (meId) {
-				if (_userIds.length > 0) {
-					userMemos = await this.userMemosRepository.findBy({ userId: meId, targetUserId: In(_userIds) })
-						.then(memos => new Map(memos.map(memo => [memo.targetUserId, memo.memo])));
+			// ピン留めノートは実行者の有無に関わらずスキーマで必要になるため、まとめて取得する
+			if (_userIds.length > 0) {
+				pinNotes = await this.userNotePiningsRepository.createQueryBuilder('pin')
+					.where('pin.userId IN (:...userIds)', { userIds: _userIds })
+					.innerJoinAndSelect('pin.note', 'note')
+					.getMany()
+					.then(pinsNotes => {
+						const map = new Map<MiUser['id'], MiUserNotePining[]>();
+						for (const note of pinsNotes) {
+							const notes = map.get(note.userId) ?? [];
+							notes.push(note);
+							map.set(note.userId, notes);
+						}
+						for (const [, notes] of map.entries()) {
+							// pack側ではDESCで取得しているので、それに合わせて降順に並び替えておく
+							notes.sort((a, b) => b.id.localeCompare(a.id));
+						}
+						return map;
+					});
+			}
 
-					userRelations = await this.getRelations(meId, _userIds);
-					pinNotes = await this.userNotePiningsRepository.createQueryBuilder('pin')
-						.where('pin.userId IN (:...userIds)', { userIds: _userIds })
-						.innerJoinAndSelect('pin.note', 'note')
-						.getMany()
-						.then(pinsNotes => {
-							const map = new Map<MiUser['id'], MiUserNotePining[]>();
-							for (const note of pinsNotes) {
-								const notes = map.get(note.userId) ?? [];
-								notes.push(note);
-								map.set(note.userId, notes);
-							}
-							for (const [, notes] of map.entries()) {
-								// pack側ではDESCで取得しているので、それに合わせて降順に並び替えておく
-								notes.sort((a, b) => b.id.localeCompare(a.id));
-							}
-							return map;
-						});
-				}
+			const meId = me ? me.id : null;
+			if (meId && _userIds.length > 0) {
+				userMemos = await this.userMemosRepository.findBy({ userId: meId, targetUserId: In(_userIds) })
+					.then(memos => new Map(memos.map(memo => [memo.targetUserId, memo.memo])));
+
+				userRelations = await this.getRelations(meId, _userIds);
 			}
 		}
 
