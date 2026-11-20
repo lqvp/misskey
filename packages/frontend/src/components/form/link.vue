@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 		:is="to ? (external ? 'a' : 'MkA') : 'div'"
 		:class="[$style.main, { [$style.active]: active }]"
 		class="_button"
-		v-bind="to ? (external ? { href: to, target: '_blank' } : { to, behavior }) : {}"
+		v-bind="to ? (external ? { href: to, target: '_blank', rel: 'noopener noreferrer' } : { to, behavior }) : {}"
 	>
 		<span :class="$style.icon"><slot name="icon"></slot></span>
 		<div :class="$style.headerText">

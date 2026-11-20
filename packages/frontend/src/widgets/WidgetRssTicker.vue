@@ -129,6 +129,9 @@ const tick = () => {
 			});
 			fetching.value = false;
 			key.value++;
+		})
+		.catch(() => {
+			fetching.value = false;
 		});
 };
 
