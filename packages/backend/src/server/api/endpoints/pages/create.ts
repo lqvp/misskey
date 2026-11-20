@@ -54,13 +54,13 @@ export const paramDef = {
 		title: { type: 'string' },
 		name: { ...pageNameSchema, minLength: 1 },
 		summary: { type: 'string', nullable: true },
-		content: { type: 'array', items: {
+		content: { type: 'array', maxItems: 256, items: {
 			type: 'object', additionalProperties: true,
 		} },
-		variables: { type: 'array', items: {
+		variables: { type: 'array', maxItems: 256, items: {
 			type: 'object', additionalProperties: true,
 		} },
-		script: { type: 'string' },
+		script: { type: 'string', maxLength: 16384 },
 		eyeCatchingImageId: { type: 'string', format: 'misskey:id', nullable: true },
 		font: { type: 'string', enum: ['serif', 'sans-serif'], default: 'sans-serif' },
 		alignCenter: { type: 'boolean', default: false },
