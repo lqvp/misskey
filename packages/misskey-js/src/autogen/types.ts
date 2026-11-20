@@ -15370,6 +15370,18 @@ export interface operations {
         };
     };
     'channels___my-favorites': {
+        requestBody: {
+            content: {
+                'application/json': {
+                    /** @default 10 */
+                    limit?: number;
+                    /** Format: misskey:id */
+                    sinceId?: string;
+                    /** Format: misskey:id */
+                    untilId?: string;
+                };
+            };
+        };
         responses: {
             /** @description OK (with results) */
             200: {
@@ -19000,6 +19012,18 @@ export interface operations {
         };
     };
     'clips___my-favorites': {
+        requestBody: {
+            content: {
+                'application/json': {
+                    /** @default 10 */
+                    limit?: number;
+                    /** Format: misskey:id */
+                    sinceId?: string;
+                    /** Format: misskey:id */
+                    untilId?: string;
+                };
+            };
+        };
         responses: {
             /** @description OK (with results) */
             200: {
@@ -28244,6 +28268,7 @@ export interface operations {
             content: {
                 'application/json': {
                     name: string;
+                    /** Format: url */
                     url: string;
                     /** @default  */
                     secret?: string;
@@ -28593,6 +28618,7 @@ export interface operations {
                     /** Format: misskey:id */
                     webhookId: string;
                     name?: string;
+                    /** Format: url */
                     url?: string;
                     secret?: string | null;
                     on?: ('mention' | 'unfollow' | 'follow' | 'followed' | 'note' | 'reply' | 'renote' | 'reaction')[];
@@ -30970,6 +30996,15 @@ export interface operations {
             };
             /** @description I'm Ai */
             418: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Too many requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -36845,6 +36880,15 @@ export interface operations {
             };
             /** @description I'm Ai */
             418: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Too many requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
