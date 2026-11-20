@@ -126,9 +126,8 @@ export class ImportUserListsProcessorService {
 /**
  * エクスポート時にクォート・エスケープされた可能性のある先頭フィールド（リスト名）と、残りの部分を解析する。
  */
-function parseListName(line: string): { name: string, rest: string } {
+export function parseListName(line: string): { name: string, rest: string } {
 	let raw: string;
-	let rest: string;
 	if (line.startsWith("'") && /^[=+\-@\t\r]/.test(line.slice(1, 2))) {
 		// 数式インジェクション対策で前置されたシングルクォートを外す
 		raw = line.slice(1);
@@ -136,7 +135,19 @@ function parseListName(line: string): { name: string, rest: string } {
 		raw = line;
 	}
 	if (raw.startsWith('"')) {
-		const end = raw.indexOf('"', 1);
+		// RFC4180 の引用符付きフィールドとして解析する（"" はエスケープされた引用符を表す）
+		let end = -1;
+		for (let i = 1; i < raw.length; i++) {
+			if (raw[i] === '"') {
+				if (raw[i + 1] === '"') {
+					// "" は閉じクォートではなくエスケープされた引用符なので読み飛ばす
+					i++;
+				} else {
+					end = i;
+					break;
+				}
+			}
+		}
 		if (end > 0) {
 			const name = raw.slice(1, end).replaceAll('""', '"');
 			// 残りは閉じクォートの次のカンマから
