@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<template #suffix><i v-if="agreeServerRules" class="ti ti-check" style="color: var(--MI_THEME-success)"></i></template>
 
 				<ol class="_gaps_s" :class="$style.rules">
-					<li v-for="item in instance.serverRules" :class="$style.rule"><div :class="$style.ruleText" v-html="item"></div></li>
+					<li v-for="item in sanitizedServerRules" :key="item" :class="$style.rule"><div :class="$style.ruleText" v-html="item"></div></li>
 				</ol>
 
 				<MkSwitch :modelValue="agreeServerRules" style="margin-top: 16px;" @update:modelValue="updateAgreeServerRules">{{ i18n.ts.agree }}</MkSwitch>
@@ -66,6 +66,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { instance } from '@/instance.js';
+import { sanitizeServerProvidedHtml } from '@/utility/sanitize-server-provided-html.js';
+
+const sanitizedServerRules = computed(() => instance.serverRules.map(rule => sanitizeServerProvidedHtml(rule)));
 import { i18n } from '@/i18n.js';
 import MkButton from '@/components/MkButton.vue';
 import MkFolder from '@/components/MkFolder.vue';
