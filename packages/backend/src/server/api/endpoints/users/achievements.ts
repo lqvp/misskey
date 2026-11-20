@@ -8,9 +8,19 @@ import { Endpoint } from '@/server/api/endpoint-base.js';
 import { ApiError } from '../../error.js';
 import type { UserProfilesRepository } from '@/models/_.js';
 import { DI } from '@/di-symbols.js';
+import { ApiError } from '../../error.js';
 
 export const meta = {
 	requireCredential: false,
+
+	errors: {
+		noSuchUser: {
+			message: 'No such user.',
+			code: 'NO_SUCH_USER',
+			id: '4362f8dc-731f-4ad8-a694-be5a88922a24',
+			httpStatusCode: 404,
+		},
+	},
 
 	res: {
 		type: 'array',

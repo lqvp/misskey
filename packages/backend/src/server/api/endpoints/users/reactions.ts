@@ -4,7 +4,7 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import type { UserProfilesRepository, NoteReactionsRepository } from '@/models/_.js';
+import type { UserProfilesRepository, NoteReactionsRepository, UsersRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { QueryService } from '@/core/QueryService.js';
 import { NoteReactionEntityService } from '@/core/entities/NoteReactionEntityService.js';
@@ -33,6 +33,13 @@ export const meta = {
 	},
 
 	errors: {
+		noSuchUser: {
+			message: 'No such user.',
+			code: 'NO_SUCH_USER',
+			id: '4362f8dc-731f-4ad8-a694-be5a88922a24',
+			httpStatusCode: 404,
+		},
+
 		reactionsNotPublic: {
 			message: 'Reactions of the user is not public.',
 			code: 'REACTIONS_NOT_PUBLIC',
@@ -68,6 +75,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		@Inject(DI.noteReactionsRepository)
 		private noteReactionsRepository: NoteReactionsRepository,
 
+		@Inject(DI.usersRepository)
+		private usersRepository: UsersRepository,
+
 		private cacheService: CacheService,
 		private userEntityService: UserEntityService,
 		private noteReactionEntityService: NoteReactionEntityService,
@@ -78,12 +88,21 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			const userIdsWhoBlockingMe = me ? await this.cacheService.userBlockedCache.fetch(me.id) : new Set<string>();
 			const iAmModerator = me ? await this.roleService.isModerator(me) : false; // Moderators can see reactions of all users
 			if (!iAmModerator) {
-				const user = await this.cacheService.findUserById(ps.userId);
+				const user = await this.usersRepository.findOneBy({ id: ps.userId });
+
+				if (user == null) {
+					throw new ApiError(meta.errors.noSuchUser);
+				}
+
 				if (this.userEntityService.isRemoteUser(user)) {
 					throw new ApiError(meta.errors.isRemoteUser);
 				}
 
-				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: ps.userId });
+				const profile = await this.userProfilesRepository.findOneBy({ userId: ps.userId });
+
+				if (profile == null) {
+					throw new ApiError(meta.errors.noSuchUser);
+				}
 				if ((me == null || me.id !== ps.userId) && !profile.publicReactions) {
 					throw new ApiError(meta.errors.reactionsNotPublic);
 				}
