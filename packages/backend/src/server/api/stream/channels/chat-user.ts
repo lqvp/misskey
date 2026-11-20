@@ -51,7 +51,9 @@ export class ChatUserChannel extends Channel {
 		switch (type) {
 			case 'read':
 				if (this.otherId) {
-					this.chatService.readUserChatMessage(this.user!.id, this.otherId);
+					this.chatService.readUserChatMessage(this.user!.id, this.otherId).catch(err => {
+						// 失敗しても既読にならないだけであり、致命的な問題にはならないので無視
+					});
 				}
 				break;
 		}

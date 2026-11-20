@@ -62,7 +62,9 @@ export class ChatRoomChannel extends Channel {
 		switch (type) {
 			case 'read':
 				if (this.roomId) {
-					this.chatService.readRoomChatMessage(this.user!.id, this.roomId);
+					this.chatService.readRoomChatMessage(this.user!.id, this.roomId).catch(err => {
+						// 失敗しても既読にならないだけであり、致命的な問題にはならないので無視
+					});
 				}
 				break;
 		}

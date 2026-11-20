@@ -199,7 +199,7 @@ export class ChatService {
 
 		// 相手を許可しておく
 		if (!iApprovedOther) {
-			this.chatApprovalsRepository.insertOne({
+			await this.chatApprovalsRepository.insertOne({
 				id: this.idService.gen(),
 				userId: fromUser.id,
 				otherId: toUser.id,
@@ -212,7 +212,7 @@ export class ChatService {
 			const redisPipeline = this.redisClient.pipeline();
 			redisPipeline.set(`newUserChatMessageExists:${toUser.id}:${fromUser.id}`, message.id);
 			redisPipeline.sadd(`newChatMessagesExists:${toUser.id}`, `user:${fromUser.id}`);
-			redisPipeline.exec();
+			await redisPipeline.exec();
 		}
 
 		if (this.userEntityService.isLocalUser(fromUser)) {
@@ -228,13 +228,17 @@ export class ChatService {
 		// 3秒経っても既読にならなかったらイベント発行
 		if (this.userEntityService.isLocalUser(toUser)) {
 			setTimeout(async () => {
-				const marker = await this.redisClient.get(`newUserChatMessageExists:${toUser.id}:${fromUser.id}`);
+				try {
+					const marker = await this.redisClient.get(`newUserChatMessageExists:${toUser.id}:${fromUser.id}`);
 
-				if (marker == null) return; // 既読
+					if (marker == null) return; // 既読
 
-				const packedMessageForTo = await this.chatEntityService.packMessageDetailed(inserted, toUser);
-				this.globalEventService.publishMainStream(toUser.id, 'newChatMessage', packedMessageForTo);
-				this.pushNotificationService.pushNotification(toUser.id, 'newChatMessage', packedMessageForTo);
+					const packedMessageForTo = await this.chatEntityService.packMessageDetailed(inserted, toUser);
+					this.globalEventService.publishMainStream(toUser.id, 'newChatMessage', packedMessageForTo);
+					this.pushNotificationService.pushNotification(toUser.id, 'newChatMessage', packedMessageForTo);
+				} catch (err) {
+					// 失敗しても通知が送られないだけであり、致命的な問題にはならないので無視
+				}
 			}, 3000);
 		}
 
@@ -284,27 +288,31 @@ export class ChatService {
 			redisPipeline.set(`newRoomChatMessageExists:${membership.userId}:${toRoom.id}`, message.id);
 			redisPipeline.sadd(`newChatMessagesExists:${membership.userId}`, `room:${toRoom.id}`);
 		}
-		redisPipeline.exec();
+		await redisPipeline.exec();
 
 		// 3秒経っても既読にならなかったらイベント発行
 		setTimeout(async () => {
-			const redisPipeline = this.redisClient.pipeline();
-			for (const membership of membershipsOtherThanMe) {
-				redisPipeline.get(`newRoomChatMessageExists:${membership.userId}:${toRoom.id}`);
-			}
-			const markers = await redisPipeline.exec();
-			if (markers == null) throw new Error('redis error');
+			try {
+				const redisPipeline = this.redisClient.pipeline();
+				for (const membership of membershipsOtherThanMe) {
+					redisPipeline.get(`newRoomChatMessageExists:${membership.userId}:${toRoom.id}`);
+				}
+				const markers = await redisPipeline.exec();
+				if (markers == null) throw new Error('redis error');
 
-			if (markers.every(marker => marker[1] == null)) return;
+				if (markers.every(marker => marker[1] == null)) return;
 
-			const packedMessageForTo = await this.chatEntityService.packMessageDetailed(inserted);
+				const packedMessageForTo = await this.chatEntityService.packMessageDetailed(inserted);
 
-			for (let i = 0; i < membershipsOtherThanMe.length; i++) {
-				const marker = markers[i][1];
-				if (marker == null) continue;
+				for (let i = 0; i < membershipsOtherThanMe.length; i++) {
+					const marker = markers[i][1];
+					if (marker == null) continue;
 
-				this.globalEventService.publishMainStream(membershipsOtherThanMe[i].userId, 'newChatMessage', packedMessageForTo);
-				this.pushNotificationService.pushNotification(membershipsOtherThanMe[i].userId, 'newChatMessage', packedMessageForTo);
+					this.globalEventService.publishMainStream(membershipsOtherThanMe[i].userId, 'newChatMessage', packedMessageForTo);
+					this.pushNotificationService.pushNotification(membershipsOtherThanMe[i].userId, 'newChatMessage', packedMessageForTo);
+				}
+			} catch (err) {
+				// 失敗しても通知が送られないだけであり、致命的な問題にはならないので無視
 			}
 		}, 3000);
 
