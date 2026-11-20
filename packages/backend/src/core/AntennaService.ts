@@ -52,7 +52,13 @@ export class AntennaService implements OnApplicationShutdown {
 
 	@bindThis
 	private async onRedisMessage(_: string, data: string): Promise<void> {
-		const obj = JSON.parse(data);
+				let obj: any;
+		try {
+			obj = JSON.parse(data);
+		} catch (err) {
+			console.warn(`failed to parse redis message data: ${err instanceof Error ? err.message : err}`);
+			return;
+		}
 
 		if (obj.channel === 'internal') {
 			const { type, body } = obj.message as GlobalEvents['internal']['payload'];
