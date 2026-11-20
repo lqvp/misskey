@@ -48,7 +48,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private queryService: QueryService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const query = this.queryService.makePaginationQuery(this.clipFavoritesRepository.createQueryBuilder('favorite'), ps.sinceId, ps.untilId)
+			// 応答はクリップIDを返すため、ページネーションカーソルもクリップIDに揃える
+			const query = this.queryService.makePaginationQuery(this.clipFavoritesRepository.createQueryBuilder('favorite'), ps.sinceId, ps.untilId, null, null, 'clipId')
 				.andWhere('favorite.userId = :meId', { meId: me.id })
 				.leftJoinAndSelect('favorite.clip', 'clip');
 
