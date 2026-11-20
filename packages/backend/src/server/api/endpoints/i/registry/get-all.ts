@@ -19,8 +19,8 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
-		scope: { type: 'array', default: [], maxItems: 100, items: {
-			type: 'string', pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
+		scope: { type: 'array', default: [], maxItems: 32, items: {
+			type: 'string', maxLength: 128, pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
 		} },
 		domain: { type: 'string', nullable: true },
 	},

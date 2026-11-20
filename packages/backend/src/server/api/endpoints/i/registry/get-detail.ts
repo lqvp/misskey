@@ -37,9 +37,9 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
-		key: { type: 'string' },
-		scope: { type: 'array', default: [], maxItems: 100, items: {
-			type: 'string', pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
+		key: { type: 'string', maxLength: 1024 },
+		scope: { type: 'array', default: [], maxItems: 32, items: {
+			type: 'string', maxLength: 128, pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
 		} },
 		domain: { type: 'string', nullable: true },
 	},

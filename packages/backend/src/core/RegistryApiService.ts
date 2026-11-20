@@ -27,6 +27,12 @@ export class RegistryApiService {
 	public async set(userId: MiUser['id'], domain: string | null, scope: string[], key: string, value: any) {
 		// TODO: 作成できるキーの数を制限する
 
+		// 64KBを超える値はDBに保存できない可能性があるため拒否
+		const serialized = JSON.stringify(value);
+		if (serialized.length > 64 * 1024) {
+			throw new IdentifiableError('f7dd41ac-6e5f-4d4d-8e75-2e7b6b0f9a6a', 'value is too big.');
+		}
+
 		const query = this.registryItemsRepository.createQueryBuilder('item');
 		if (domain) {
 			query.where('item.domain = :domain', { domain: domain });
