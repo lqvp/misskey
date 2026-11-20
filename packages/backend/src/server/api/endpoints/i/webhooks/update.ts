@@ -38,7 +38,7 @@ export const paramDef = {
 	properties: {
 		webhookId: { type: 'string', format: 'misskey:id' },
 		name: { type: 'string', minLength: 1, maxLength: 100 },
-		url: { type: 'string', format: 'url', minLength: 1, maxLength: 1024 },
+		url: { type: 'string', minLength: 1, maxLength: 1024 },
 		secret: { type: 'string', nullable: true, maxLength: 1024 },
 		on: { type: 'array', items: {
 			type: 'string', enum: webhookEventTypes,

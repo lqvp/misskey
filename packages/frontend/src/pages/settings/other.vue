@@ -224,7 +224,16 @@ function readAllChatMessages() {
 }
 
 async function forceCloudBackup() {
-	await cloudBackup();
+	try {
+		await cloudBackup();
+	} catch (err) {
+		os.alert({
+			type: 'error',
+			title: i18n.ts.somethingHappened,
+		});
+		console.error(err);
+		return;
+	}
 	os.success();
 }
 

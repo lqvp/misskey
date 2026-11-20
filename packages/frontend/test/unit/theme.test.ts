@@ -91,6 +91,35 @@ const resetDocument = () => {
 	});
 };
 
+describe('sanitizeThemeValue', () => {
+	test('calcや色彩関数の演算子 (+ * /) を含む値は許可される', async () => {
+		const { sanitizeThemeValue } = await loadThemeModule();
+
+		assert.strictEqual(sanitizeThemeValue('calc(100% + 2px)'), 'calc(100% + 2px)');
+		assert.strictEqual(sanitizeThemeValue('calc(10px * 2)'), 'calc(10px * 2)');
+		assert.strictEqual(sanitizeThemeValue('rgb(255 0 0 / 0.5)'), 'rgb(255 0 0 / 0.5)');
+	});
+
+	test('url()を含む値は拒否される', async () => {
+		const { sanitizeThemeValue } = await loadThemeModule();
+
+		assert.strictEqual(sanitizeThemeValue('url(https://example.com/x)'), null);
+	});
+
+	test('複数のCSS宣言を含む値は拒否される', async () => {
+		const { sanitizeThemeValue } = await loadThemeModule();
+
+		assert.strictEqual(sanitizeThemeValue('width:100px;background:x'), null);
+	});
+
+	test('512字を超える値は拒否される', async () => {
+		const { sanitizeThemeValue } = await loadThemeModule();
+
+		assert.strictEqual(sanitizeThemeValue('a'.repeat(512)), 'a'.repeat(512));
+		assert.strictEqual(sanitizeThemeValue('a'.repeat(513)), null);
+	});
+});
+
 describe('ThemeManager', () => {
 	beforeEach(() => {
 		resetDocument();

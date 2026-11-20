@@ -294,7 +294,10 @@ export class PreferencesManager extends EventEmitter<PreferencesManagerEvents> {
 		if (record[2].sync) {
 			// awaitの必要なし
 			// TODO: リクエストを間引く
-			this.io.cloudSet({ key, scope: record[0], value: record[1] });
+			this.io.cloudSet({ key, scope: record[0], value: record[1] }).catch(err => {
+				// 同期に失敗してもローカルへの保存は完了しているため、以降の処理は続行する
+				console.error('prefer:cloudSet failed', err);
+			});
 		}
 	}
 

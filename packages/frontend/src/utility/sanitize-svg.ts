@@ -7,7 +7,7 @@ import sanitizeHtml from 'sanitize-html';
 
 const allowedTags = ['svg', 'path', 'g', 'rect', 'circle', 'title', 'defs', 'use', 'image'];
 
-const allowedAttributes: sanitizeHtml.Attributes = {
+const allowedAttributes: Record<string, sanitizeHtml.AllowedAttribute[]> = {
 	'*': [
 		'id',
 		'class',

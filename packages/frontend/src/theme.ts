@@ -181,9 +181,9 @@ class ThemeManager extends EventEmitter<ThemeManagerEvents> {
  * ユーザーがインストール可能なテーマの値はJSON5パースのみで検証されておらず、
  * CSS変数としてそのまま適用すると構造を壊す可能性があるため、使用可能な文字種に制限する。
  */
-function sanitizeThemeValue(value: string): string | null {
+export function sanitizeThemeValue(value: string): string | null {
 	// 色コード・rgb/hsl関数・数値・単位・引用符文字列など、一般的なテーマ値で使われる文字のみ許可する
-	if (!/^[\w\-\s(),.%#'"/]+$/.test(value)) return null;
+	if (!/^[\w\-\s(),.%#'"/+*]+$/.test(value)) return null;
 	// url() を含む値は外部リソースの読み込みに使われ得るため拒否する
 	if (value.toLowerCase().includes('url(')) return null;
 	if (value.length > 512) return null;

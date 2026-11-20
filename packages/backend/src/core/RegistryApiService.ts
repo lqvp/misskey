@@ -27,10 +27,10 @@ export class RegistryApiService {
 	public async set(userId: MiUser['id'], domain: string | null, scope: string[], key: string, value: any) {
 		// TODO: 作成できるキーの数を制限する
 
-		// 64KBを超える値はDBに保存できない可能性があるため拒否
-		// JSON.stringify は undefined 入力で undefined を返すため、長さ判定用に空文字へフォールバックする
+		// API の本体サイズ上限（1MiB）に合わせた粗い上限。value は jsonb でサイズ制約がない
+		// JSON.stringify は undefined 入力で undefined を返すため、サイズ判定用に空文字へフォールバックする
 		const serialized = JSON.stringify(value) ?? '';
-		if (serialized.length > 64 * 1024) {
+		if (Buffer.byteLength(serialized, 'utf8') > 1024 * 1024) {
 			throw new IdentifiableError('f7dd41ac-6e5f-4d4d-8e75-2e7b6b0f9a6a', 'value is too big.');
 		}
 

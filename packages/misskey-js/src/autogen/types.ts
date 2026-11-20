@@ -28268,7 +28268,6 @@ export interface operations {
             content: {
                 'application/json': {
                     name: string;
-                    /** Format: url */
                     url: string;
                     /** @default  */
                     secret?: string;
@@ -28618,7 +28617,6 @@ export interface operations {
                     /** Format: misskey:id */
                     webhookId: string;
                     name?: string;
-                    /** Format: url */
                     url?: string;
                     secret?: string | null;
                     on?: ('mention' | 'unfollow' | 'follow' | 'followed' | 'note' | 'reply' | 'renote' | 'reaction')[];

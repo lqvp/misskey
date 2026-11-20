@@ -122,7 +122,7 @@ export class ExportUserListsProcessorService {
  * ユーザーが自由に設定できる文字列をCSVフィールドとして書き出す際、
  * カンマ等を含む場合はクォートし、数式インジェクション（=、+、-、@ 始まり）を防ぐためにシングルクォートを前置する。
  */
-function formatCsvCell(value: string): string {
+export function formatCsvCell(value: string): string {
 	const escaped = /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
 	if (/^[=+\-@\t\r]/.test(escaped)) {
 		return `'${escaped}`;
