@@ -73,7 +73,7 @@ export class ExportUserListsProcessorService {
 					const acct = this.utilityService.getFullApAccount(u.username, u.host);
 					// 3rd column and later will be key=value pairs
 					// リスト名はユーザーが自由に設定できるため、CSV数式インジェクションを防ぐ
-					const content = `${escapeCsvCell(list.name)},${acct},withReplies=${usersWithReplies.has(u.id)}`;
+					const content = `${formatCsvCell(list.name)},${acct},withReplies=${usersWithReplies.has(u.id)}`;
 					await new Promise<void>((res, rej) => {
 						stream.write(content + '\n', err => {
 							if (err) {
@@ -106,12 +106,13 @@ export class ExportUserListsProcessorService {
 }
 
 /**
- * ユーザーが自由に設定できる文字列をCSVセルとして書き出す際、
- * 数式インジェクション（=、+、-、@ 始まり）を防ぐためにシングルクォートを前置する。
+ * ユーザーが自由に設定できる文字列をCSVフィールドとして書き出す際、
+ * カンマ等を含む場合はクォートし、数式インジェクション（=、+、-、@ 始まり）を防ぐためにシングルクォートを前置する。
  */
-function escapeCsvCell(value: string): string {
-	if (/^[=+\-@\t\r]/.test(value)) {
-		return `'${value}`;
+function formatCsvCell(value: string): string {
+	const escaped = /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+	if (/^[=+\-@\t\r]/.test(escaped)) {
+		return `'${escaped}`;
 	}
-	return value;
+	return escaped;
 }
