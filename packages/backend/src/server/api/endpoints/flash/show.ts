@@ -53,6 +53,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.noSuchFlash);
 			}
 
+			if (flash.visibility === 'private' && (me == null || flash.userId !== me.id)) {
+				throw new ApiError(meta.errors.noSuchFlash);
+			}
+
 			return await this.flashEntityService.pack(flash, me);
 		});
 	}
