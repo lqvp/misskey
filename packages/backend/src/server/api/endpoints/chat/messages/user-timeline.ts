@@ -72,7 +72,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			const messages = await this.chatService.userTimeline(me.id, other.id, ps.limit, sinceId, untilId);
 
-			this.chatService.readUserChatMessage(me.id, other.id);
+			await this.chatService.readUserChatMessage(me.id, other.id);
 
 			return await this.chatEntityService.packMessagesLiteFor1on1(messages);
 		});
