@@ -36,7 +36,11 @@ export class Resolver {
 	private history: Set<string>;
 	private user?: MiLocalUser;
 	private logger: Logger;
-	private recursionLimit = 256;
+	// 1つのResolverインスタンスで辿れるURL数の上限。
+	// リモートが用意した長いチェーン（inReplyTo連鎖など）を辿り切るまで
+	// 最大この回数の外部HTTP GETが直列に発生するため、DoS増幅を抑える意味で
+	// 実用上十分な値に引き下げている
+	private recursionLimit = 32;
 
 	constructor(
 		@Inject(DI.config)
