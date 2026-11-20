@@ -4,15 +4,25 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import type { NotesRepository, NoteThreadMutingsRepository, NoteFavoritesRepository } from '@/models/_.js';
+import type { NoteThreadMutingsRepository, NoteFavoritesRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
+import { GetterService } from '@/server/api/GetterService.js';
 import { DI } from '@/di-symbols.js';
+import { ApiError } from '../../error.js';
 
 export const meta = {
 	tags: ['notes'],
 
 	requireCredential: true,
 	kind: 'read:account',
+
+	errors: {
+		noSuchNote: {
+			message: 'No such note.',
+			code: 'NO_SUCH_NOTE',
+			id: '30b6201d-75a0-4ab4-9a1b-230a5b829c9b',
+		},
+	},
 
 	res: {
 		type: 'object',
@@ -41,17 +51,19 @@ export const paramDef = {
 @Injectable()
 export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-disable-line import/no-default-export
 	constructor(
-		@Inject(DI.notesRepository)
-		private notesRepository: NotesRepository,
-
 		@Inject(DI.noteThreadMutingsRepository)
 		private noteThreadMutingsRepository: NoteThreadMutingsRepository,
 
 		@Inject(DI.noteFavoritesRepository)
 		private noteFavoritesRepository: NoteFavoritesRepository,
+
+		private getterService: GetterService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const note = await this.notesRepository.findOneByOrFail({ id: ps.noteId });
+			const note = await this.getterService.getNote(ps.noteId).catch(err => {
+				if (err.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchNote);
+				throw err;
+			});
 
 			const [favorite, threadMuting] = await Promise.all([
 				this.noteFavoritesRepository.count({

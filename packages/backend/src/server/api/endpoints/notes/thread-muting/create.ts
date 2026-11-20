@@ -4,12 +4,14 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import ms from 'ms';
 import type { NotesRepository, NoteThreadMutingsRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { GetterService } from '@/server/api/GetterService.js';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { ApiError } from '../../../error.js';
 
 export const meta = {
@@ -77,11 +79,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.alreadyMuting);
 			}
 
-			await this.noteThreadMutingsRepository.insert({
-				id: this.idService.gen(),
-				threadId: note.threadId ?? note.id,
-				userId: me.id,
-			});
+			try {
+				await this.noteThreadMutingsRepository.insert({
+					id: this.idService.gen(),
+					threadId: note.threadId ?? note.id,
+					userId: me.id,
+				});
+			} catch (e: unknown) {
+				if (e instanceof QueryFailedError && isDuplicateKeyValueError(e)) {
+					throw new ApiError(meta.errors.alreadyMuting);
+				}
+
+				throw e;
+			}
 		});
 	}
 }
