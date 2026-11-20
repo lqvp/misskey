@@ -5,7 +5,7 @@
 
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
-import { IsNull, MoreThan } from 'typeorm';
+import { In, IsNull, MoreThan } from 'typeorm';
 import { format as dateFormat } from 'date-fns';
 import { DI } from '@/di-symbols.js';
 import type { MutingsRepository, UsersRepository, MiMuting } from '@/models/_.js';
@@ -82,8 +82,13 @@ export class ExportMutingProcessorService {
 
 				cursor = mutes.at(-1)?.id ?? null;
 
+				const users = await this.usersRepository.findBy({
+					id: In(mutes.map(x => x.muteeId)),
+				});
+				const usersMap = new Map(users.map(u => [u.id, u]));
+
 				for (const mute of mutes) {
-					const u = await this.usersRepository.findOneBy({ id: mute.muteeId });
+					const u = usersMap.get(mute.muteeId);
 					if (u == null) {
 						exportedCount++; continue;
 					}
