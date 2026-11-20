@@ -60,7 +60,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				password: hash,
 			});
 
-			this.passwordResetRequestsRepository.delete(req.id);
+			await this.passwordResetRequestsRepository.delete(req.id);
 		});
 	}
 }
