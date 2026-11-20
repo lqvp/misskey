@@ -195,7 +195,7 @@ export class ClientServerService {
 
 		manifest = {
 			...manifest,
-			...JSON.parse(this.meta.manifestJsonOverride === '' ? '{}' : this.meta.manifestJsonOverride),
+			...this.parseManifestJsonOverride(),
 		};
 
 		reply.header('Cache-Control', 'max-age=300');
@@ -203,6 +203,15 @@ export class ClientServerService {
 	}
 
 	@bindThis
+	private parseManifestJsonOverride(): Record<string, unknown> {
+		if (this.meta.manifestJsonOverride === '') return {};
+		try {
+			return JSON.parse(this.meta.manifestJsonOverride) as Record<string, unknown>;
+		} catch (e) {
+			this.clientLoggerService.logger.warn(`invalid manifestJsonOverride: ${e instanceof Error ? e.message : e}`);
+			return {};
+		}
+	}
 	public createServer(fastify: FastifyInstance, options: FastifyPluginOptions, done: (err?: Error) => void) {
 		const configUrl = new URL(this.config.url);
 
