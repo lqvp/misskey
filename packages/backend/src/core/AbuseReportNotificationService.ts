@@ -110,19 +110,17 @@ export class AbuseReportNotificationService implements OnApplicationShutdown {
 			return;
 		}
 
-		for (const mailAddress of recipientEMailAddresses) {
-			await Promise.all(
-				abuseReports.map(it => {
-					// TODO: 送信処理はJobQueue化したい
-					return this.emailService.sendEmail(
-						mailAddress,
-						'New Abuse Report',
-						sanitizeHtml(it.comment),
-						sanitizeHtml(it.comment),
-					);
-				}),
-			);
-		}
+		await Promise.all(recipientEMailAddresses.flatMap(mailAddress => {
+			return abuseReports.map(it => {
+				// TODO: 送信処理はJobQueue化したい
+				return this.emailService.sendEmail(
+					mailAddress,
+					'New Abuse Report',
+					sanitizeHtml(it.comment),
+					it.comment,
+				);
+			});
+		}));
 	}
 
 	/**
