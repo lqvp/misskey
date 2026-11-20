@@ -251,7 +251,9 @@ export class UserEntityService implements OnModuleInit {
 			muters,
 			renoteMuters,
 		] = await Promise.all([
-			this.followingsRepository.findBy({ followerId: me })
+			// follows を全件ロードすると、フォロー数が多いユーザーで転送量が O(全フォロー数) になる。
+			// 呼び出し元は targets の分しか読まないので、必要最小限に絞り込む。
+			this.followingsRepository.findBy({ followerId: me, followeeId: In(targets) })
 				.then(f => new Map(f.map(it => [it.followeeId, it]))),
 			this.followingsRepository.createQueryBuilder('f')
 				.select('f.followerId')
