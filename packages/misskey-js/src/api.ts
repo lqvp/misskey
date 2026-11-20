@@ -117,9 +117,13 @@ export class APIClient {
 				if (res.status === 200 || res.status === 204) {
 					resolve(body);
 				} else {
+					// エラーレスポンスが想定した形式でない場合でも、呼び出し側がAPIErrorとして扱えるようにフォールバックする
+					const error = (body != null && typeof body === 'object' && 'error' in body && body.error != null && typeof body.error === 'object')
+						? body.error
+						: { };
 					reject({
 						[MK_API_ERROR]: true,
-						...body.error,
+						...error,
 					});
 				}
 			}).catch(reject);
