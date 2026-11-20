@@ -62,6 +62,7 @@ export class MiNote {
 	public threadId: string | null;
 
 	// TODO: varcharにしたい
+	@Index('IDX_NOTE_TEXT_TRGM', { synchronize: false })
 	@Column('text', {
 		nullable: true,
 	})
@@ -72,6 +73,7 @@ export class MiNote {
 	})
 	public name: string | null;
 
+	@Index('IDX_NOTE_CW_TRGM', { synchronize: false })
 	@Column('varchar', {
 		length: 512, nullable: true,
 	})
