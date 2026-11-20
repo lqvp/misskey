@@ -25,15 +25,32 @@ export class VideoProcessingService {
 
 	@bindThis
 	public async generateVideoThumbnail(source: string): Promise<IImage> {
+		const VIDEO_THUMBNAIL_TIMEOUT_MS = 120 * 1000;
+
 		const [dir, cleanup] = await createTempDir();
 
 		try {
 			await new Promise((res, rej) => {
-				FFmpeg({
+				// 壊れた動画や劣悪な環境でffmpegが完了しないままワーカーを占有するのを防ぐため、タイムアウトを設ける
+				const command = FFmpeg({
 					source,
-				})
-					.on('end', res)
-					.on('error', rej)
+				});
+
+				const timer = setTimeout(() => {
+					// ffmpegが完了しないまま残り続けるのを防ぐため、タイムアウト時にプロセスをkillする
+					command.kill('SIGKILL');
+					rej(new Error(`ffmpeg timed out after ${VIDEO_THUMBNAIL_TIMEOUT_MS}ms`));
+				}, VIDEO_THUMBNAIL_TIMEOUT_MS);
+
+				command
+					.on('end', () => {
+						clearTimeout(timer);
+						res(undefined);
+					})
+					.on('error', (err: Error) => {
+						clearTimeout(timer);
+						rej(err);
+					})
 					.screenshot({
 						folder: dir,
 						filename: 'out.png',	// must have .png extension
