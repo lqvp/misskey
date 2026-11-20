@@ -62,17 +62,6 @@ export class UserBlockingService implements OnModuleInit {
 
 	@bindThis
 	public async block(blocker: MiUser, blockee: MiUser, silent = false) {
-		await Promise.all([
-			this.cancelRequest(blocker, blockee, silent),
-			this.cancelRequest(blockee, blocker, silent),
-			this.userFollowingService.unfollow(blocker, blockee, silent),
-			this.userFollowingService.unfollow(blockee, blocker, silent),
-			// ブロックされたことがリアルタイムで伝わってしまうため、クライアントには通知しない
-			this.userListService.removeMemberFromAllLists(blockee, blocker, { notifyClients: false }),
-			this.removeRoomInvitations(blocker, blockee),
-			this.removeRoomInvitations(blockee, blocker),
-		]);
-
 		const blocking = {
 			id: this.idService.gen(),
 			blocker,
@@ -81,7 +70,28 @@ export class UserBlockingService implements OnModuleInit {
 			blockeeId: blockee.id,
 		} as MiBlocking;
 
+		// 既にブロック済みか確認し、二重ブロック時のユニーク制約違反で
+		// フォロー解除などの前処理だけが実行された状態にならないようにする
+		const exist = await this.blockingsRepository.existsBy({ blockerId: blocker.id, blockeeId: blockee.id });
+		if (exist) return;
+
 		await this.blockingsRepository.insert(blocking);
+
+		try {
+			await Promise.all([
+				this.cancelRequest(blocker, blockee, silent),
+				this.cancelRequest(blockee, blocker, silent),
+				this.userFollowingService.unfollow(blocker, blockee, silent),
+				this.userFollowingService.unfollow(blockee, blocker, silent),
+				// ブロックされたことがリアルタイムで伝わってしまうため、クライアントには通知しない
+				this.userListService.removeMemberFromAllLists(blockee, blocker, { notifyClients: false }),
+				this.removeRoomInvitations(blocker, blockee),
+				this.removeRoomInvitations(blockee, blocker),
+			]);
+		} catch (err) {
+			// 後処理の失敗でキャッシュ更新がスキップされると古い状態が残り続けるため、ログのみで続行する
+			this.logger.error(`failed to cleanup following relationships on block: ${err instanceof Error ? err.message : err}`);
+		}
 
 		this.cacheService.userBlockingCache.refresh(blocker.id);
 		this.cacheService.userBlockedCache.refresh(blockee.id);
