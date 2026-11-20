@@ -117,9 +117,21 @@ export class APIClient {
 				if (res.status === 200 || res.status === 204) {
 					resolve(body);
 				} else {
+					// エラーレスポンスが想定した形式でない場合でも、呼び出し側がAPIErrorとして扱えるようにフォールバックする
+					const fallback: APIError = {
+						id: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+						code: 'INTERNAL_ERROR',
+						message: 'Failed to parse the error response.',
+						kind: 'server',
+						info: {},
+					};
+					const raw = (body != null && typeof body === 'object' && 'error' in body) ? (body as Record<string, unknown>).error : undefined;
+					const error = (raw != null && typeof raw === 'object' && !Array.isArray(raw))
+						? { ...fallback, ...raw }
+						: fallback;
 					reject({
 						[MK_API_ERROR]: true,
-						...body.error,
+						...error,
 					});
 				}
 			}).catch(reject);
