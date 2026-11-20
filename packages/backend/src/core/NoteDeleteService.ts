@@ -61,6 +61,9 @@ export class NoteDeleteService {
 	 * @param note 投稿
 	 */
 	async delete(user: { id: MiUser['id']; uri: MiUser['uri']; host: MiUser['host']; isBot: MiUser['isBot']; }, note: MiNote, quiet = false, deleter?: MiUser) {
+		// 所有権検証は副作用の前に行う（所有者でない場合のDB削除は0行になるが、イベント配信等は実行されてしまうため）
+		if (note.userId !== user.id) return;
+
 		const deletedAt = new Date();
 
 		if (note.replyId) {
