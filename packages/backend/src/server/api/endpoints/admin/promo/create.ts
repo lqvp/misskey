@@ -36,7 +36,7 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		noteId: { type: 'string', format: 'misskey:id' },
-		expiresAt: { type: 'integer' },
+		expiresAt: { type: 'integer', minimum: 0, maximum: 100000000000000 },
 	},
 	required: ['noteId', 'expiresAt'],
 } as const;

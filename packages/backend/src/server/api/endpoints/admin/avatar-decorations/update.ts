@@ -26,8 +26,8 @@ export const paramDef = {
 		id: { type: 'string', format: 'misskey:id' },
 		name: { type: 'string', minLength: 1 },
 		description: { type: 'string' },
-		url: { type: 'string', minLength: 1 },
-		roleIdsThatCanBeUsedThisDecoration: { type: 'array', items: {
+		url: { type: 'string', minLength: 1, maxLength: 1024 },
+		roleIdsThatCanBeUsedThisDecoration: { type: 'array', maxItems: 50, items: {
 			type: 'string',
 		} },
 		category: { type: 'string', nullable: true },
