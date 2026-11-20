@@ -35,6 +35,12 @@ export const meta = {
 			code: 'ACCESS_DENIED',
 			id: '25b5bc31-dc79-4ebd-9bd2-c84978fd052c',
 		},
+
+		expiresAtIsPast: {
+			message: 'Cannot set past date to "expiresAt".',
+			code: 'EXPIRES_AT_IS_PAST',
+			id: 'a71630d0-4adb-4f50-9373-ee6e3d206b6f',
+		},
 	},
 } as const;
 
@@ -81,7 +87,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			if (ps.expiresAt && ps.expiresAt <= Date.now()) {
-				return;
+				throw new ApiError(meta.errors.expiresAtIsPast);
 			}
 
 			await this.roleService.assign(user.id, role.id, ps.expiresAt ? new Date(ps.expiresAt) : null, me);
