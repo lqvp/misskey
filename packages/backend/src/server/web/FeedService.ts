@@ -86,12 +86,25 @@ export class FeedService {
 			const file = files.find(file => file.type.startsWith('image/'));
 			const text = note.text;
 
+			// 壊れたJSONが保存されていた場合にフィード全体が500にならないようガードする
+			let mentionedRemoteUsers: { uri: string; url?: string | undefined; username: string; host: string; }[] = [];
+			if (note.mentionedRemoteUsers != null) {
+				try {
+					const parsed = JSON.parse(note.mentionedRemoteUsers);
+					if (Array.isArray(parsed)) {
+						mentionedRemoteUsers = parsed;
+					}
+				} catch {
+					// パース失敗時はメンションなしとして扱う
+				}
+			}
+
 			feed.addItem({
 				title: `New note by ${author.name}`,
 				link: `${this.config.url}/notes/${note.id}`,
 				date: this.idService.parse(note.id).date,
 				description: note.cw ?? undefined,
-				content: text ? this.mfmService.toHtml(mfmParse(text), JSON.parse(note.mentionedRemoteUsers)) ?? undefined : undefined,
+				content: text ? this.mfmService.toHtml(mfmParse(text), mentionedRemoteUsers) ?? undefined : undefined,
 				image: file ? this.driveFileEntityService.getPublicUrl(file) : undefined,
 			});
 		}
