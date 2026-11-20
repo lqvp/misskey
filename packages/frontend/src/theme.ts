@@ -184,6 +184,8 @@ class ThemeManager extends EventEmitter<ThemeManagerEvents> {
 function sanitizeThemeValue(value: string): string | null {
 	// 色コード・rgb/hsl関数・数値・単位・引用符文字列など、一般的なテーマ値で使われる文字のみ許可する
 	if (!/^[\w\-\s(),.%#'"/]+$/.test(value)) return null;
+	// url() を含む値は外部リソースの読み込みに使われ得るため拒否する
+	if (value.toLowerCase().includes('url(')) return null;
 	if (value.length > 512) return null;
 	return value;
 }
