@@ -11,6 +11,7 @@ import type { Packed } from '@/misc/json-schema.js';
 import { awaitAll } from '@/misc/prelude/await-all.js';
 import type { MiUser } from '@/models/User.js';
 import type { MiNote } from '@/models/Note.js';
+import type { MiChannel } from '@/models/Channel.js';
 import type { UsersRepository, NotesRepository, FollowingsRepository, PollsRepository, PollVotesRepository, NoteReactionsRepository, ChannelsRepository, MiMeta } from '@/models/_.js';
 import { bindThis } from '@/decorators.js';
 import { DebounceLoader } from '@/misc/loader.js';
@@ -385,7 +386,8 @@ export class NoteEntityService implements OnModuleInit {
 				bufferedReactions: Map<MiNote['id'], { deltas: Record<string, number>; pairs: ([MiUser['id'], string])[] }> | null;
 				myReactions: Map<MiNote['id'], string | null>;
 				packedFiles: Map<MiNote['fileIds'][number], Packed<'DriveFile'> | null>;
-				packedUsers: Map<MiUser['id'], Packed<'UserLite'>>
+				packedUsers: Map<MiUser['id'], Packed<'UserLite'>>;
+				channels: Map<MiNote['channelId'], MiChannel>;
 			};
 		},
 	): Promise<Packed<'Note'>> {
@@ -417,7 +419,7 @@ export class NoteEntityService implements OnModuleInit {
 		const channel = note.channelId
 			? note.channel
 				? note.channel
-				: await this.channelsRepository.findOneBy({ id: note.channelId })
+				: (opts._hint_?.channels?.get(note.channelId) ?? await this.channelsRepository.findOneBy({ id: note.channelId }))
 			: null;
 
 		const reactionEmojiNames = Object.keys(reactions)
@@ -584,6 +586,12 @@ export class NoteEntityService implements OnModuleInit {
 		const packedUsers = await this.userEntityService.packMany(users, me)
 			.then(users => new Map(users.map(u => [u.id, u])));
 
+		const channelIds = notes.map(n => n.channelId).filter((x): x is NonNullable<MiNote['channelId']> => x != null);
+		const channels = channelIds.length > 0
+			? await this.channelsRepository.findBy({ id: In(channelIds) })
+				.then(channels => new Map(channels.map(c => [c.id as MiNote['channelId'], c])))
+			: new Map<MiNote['channelId'], MiChannel>();
+
 		return await Promise.all(notes.map(n => this.pack(n, me, {
 			...options,
 			_hint_: {
@@ -591,6 +599,7 @@ export class NoteEntityService implements OnModuleInit {
 				myReactions: myReactionsMap,
 				packedFiles,
 				packedUsers,
+				channels,
 			},
 		})));
 	}
