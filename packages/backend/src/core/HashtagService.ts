@@ -30,6 +30,28 @@ type UpdatingHashtagColumn = {
 	remoteUsersCount: keyof MiHashtag & `${AttachedOrMentioned}RemoteUsersCount`,
 };
 
+// SQLへの補間に使うため、実行時にもカラム名を検証する
+const hashtagColumnAllowlist = [
+	'attachedUserIds',
+	'attachedUsersCount',
+	'attachedLocalUserIds',
+	'attachedLocalUsersCount',
+	'attachedRemoteUserIds',
+	'attachedRemoteUsersCount',
+	'mentionedUserIds',
+	'mentionedUsersCount',
+	'mentionedLocalUserIds',
+	'mentionedLocalUsersCount',
+	'mentionedRemoteUserIds',
+	'mentionedRemoteUsersCount',
+] as const;
+
+function validateHashtagColumn(column: string): void {
+	if (!(hashtagColumnAllowlist as readonly string[]).includes(column)) {
+		throw new Error(`Invalid hashtag column: ${column}`);
+	}
+}
+
 @Injectable()
 export class HashtagService {
 	constructor(
@@ -110,6 +132,10 @@ export class HashtagService {
 		const localOrRemoteUserIds = isLocal ? columns.localUserIds : columns.remoteUserIds;
 		const localOrRemoteUserCount = isLocal ? columns.localUsersCount : columns.remoteUsersCount;
 
+		for (const column of [totalUserIds, totalUsersCount, localOrRemoteUserIds, localOrRemoteUserCount]) {
+			validateHashtagColumn(column);
+		}
+
 		const runner = this.db.createQueryRunner('master');
 		try {
 			await runner.query(
@@ -145,6 +171,10 @@ export class HashtagService {
 		const { totalUserIds, totalUsersCount } = columns;
 		const localOrRemoteUserIds = isLocal ? columns.localUserIds : columns.remoteUserIds;
 		const localOrRemoteUserCount = isLocal ? columns.localUsersCount : columns.remoteUsersCount;
+
+		for (const column of [totalUserIds, totalUsersCount, localOrRemoteUserIds, localOrRemoteUserCount]) {
+			validateHashtagColumn(column);
+		}
 
 		const runner = this.db.createQueryRunner('master');
 		try {
