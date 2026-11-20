@@ -461,6 +461,17 @@ export class NoteEntityService implements OnModuleInit {
 		const packedFiles = options?._hint_?.packedFiles;
 		const packedUsers = options?._hint_?.packedUsers;
 
+		// 閲覧者がブロック・ミュートしているユーザーのノートは reply/renote としてパックしない
+		// (タイムラインでは generateBaseNoteFilteringQuery で除外されるが、pack() の再帰パックには適用されていない)
+		let hiddenUserIds: Set<string> | null = null;
+		if (meId != null && (note.replyId != null || note.renoteId != null)) {
+			const [userIdsWhoBlockingMe, userIdsWhoMeMuting] = await Promise.all([
+				this.cacheService.userBlockedCache.fetch(meId),
+				this.cacheService.userMutingsCache.fetch(meId),
+			]);
+			hiddenUserIds = new Set([...userIdsWhoBlockingMe, ...userIdsWhoMeMuting]);
+		}
+
 		const packed: Packed<'Note'> = await awaitAll({
 			id: note.id,
 			createdAt: this.idService.parse(note.id).date.toISOString(),
@@ -502,20 +513,20 @@ export class NoteEntityService implements OnModuleInit {
 				clippedCount: note.clippedCount,
 
 				// そもそもJOINしていない場合はundefined、JOINしたけど存在していなかった場合はnullで区別される
-				reply: (note.replyId && note.reply === null) ? null : note.replyId ? nullIfEntityNotFound(this.pack(note.reply ?? note.replyId, me, {
+				reply: (note.replyId && note.reply === null) ? null : note.replyId ? (hiddenUserIds != null && note.replyUserId != null && hiddenUserIds.has(note.replyUserId) ? null : nullIfEntityNotFound(this.pack(note.reply ?? note.replyId, me, {
 					detail: false,
 					skipHide: opts.skipHide,
 					withReactionAndUserPairCache: opts.withReactionAndUserPairCache,
 					_hint_: options?._hint_,
-				})) : undefined,
+				}))) : undefined,
 
 				// そもそもJOINしていない場合はundefined、JOINしたけど存在していなかった場合はnullで区別される
-				renote: (note.renoteId && note.renote === null) ? null : note.renoteId ? nullIfEntityNotFound(this.pack(note.renote ?? note.renoteId, me, {
+				renote: (note.renoteId && note.renote === null) ? null : note.renoteId ? (hiddenUserIds != null && note.renoteUserId != null && hiddenUserIds.has(note.renoteUserId) ? null : nullIfEntityNotFound(this.pack(note.renote ?? note.renoteId, me, {
 					detail: true,
 					skipHide: opts.skipHide,
 					withReactionAndUserPairCache: opts.withReactionAndUserPairCache,
 					_hint_: options?._hint_,
-				})) : undefined,
+				}))) : undefined,
 
 				poll: note.hasPoll ? this.populatePoll(note, meId) : undefined,
 
