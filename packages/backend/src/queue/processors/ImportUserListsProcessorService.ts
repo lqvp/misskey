@@ -70,9 +70,9 @@ export class ImportUserListsProcessorService {
 			linenum++;
 
 			try {
-				const parts = line.split(',');
-				const listName = parts[0].trim();
-				const { username, host } = Acct.parse(parts[1].trim());
+				const { name: listName, rest } = parseListName(line);
+				const parts = rest.split(',');
+				const { username, host } = Acct.parse(parts[0].trim());
 				let withReplies = false;
 
 				for (const keyValue of parts.slice(2)) {
@@ -121,4 +121,28 @@ export class ImportUserListsProcessorService {
 
 		this.logger.succ('Imported');
 	}
+}
+
+/**
+ * エクスポート時にクォート・エスケープされた可能性のある先頭フィールド（リスト名）と、残りの部分を解析する。
+ */
+function parseListName(line: string): { name: string, rest: string } {
+	let raw: string;
+	let rest: string;
+	if (line.startsWith("'") && /^[=+\-@\t\r]/.test(line.slice(1, 2))) {
+		// 数式インジェクション対策で前置されたシングルクォートを外す
+		raw = line.slice(1);
+	} else {
+		raw = line;
+	}
+	if (raw.startsWith('"')) {
+		const end = raw.indexOf('"', 1);
+		if (end > 0) {
+			const name = raw.slice(1, end).replaceAll('""', '"');
+			// 残りは閉じクォートの次のカンマから
+			return { name, rest: raw.slice(end + 2) };
+		}
+	}
+	const commaIndex = raw.indexOf(',');
+	return { name: commaIndex > 0 ? raw.slice(0, commaIndex) : raw, rest: commaIndex > 0 ? raw.slice(commaIndex + 1) : '' };
 }
