@@ -71,6 +71,9 @@ export class FileServerFileResolver {
 	}
 
 	public async resolveFileByAccessKey(key: string): Promise<FileResolveResult> {
+		// アクセスキーの形式検証はDBルックアップより前に行う（検証→利用の原則）
+		if (!/^[a-zA-Z0-9._-]+$/.test(key) || key === '.' || key === '..') return { kind: 'not-found' };
+
 		// Fetch drive file
 		const file = await this.driveFilesRepository.createQueryBuilder('file')
 			.where('file.accessKey = :accessKey', { accessKey: key })
@@ -97,8 +100,6 @@ export class FileServerFileResolver {
 				filename: file.name,
 			};
 		}
-
-		if (!/^[a-zA-Z0-9._-]+$/.test(key) || key === '.' || key === '..') return { kind: 'not-found' };
 
 		const path = this.internalStorageService.resolvePath(key);
 
