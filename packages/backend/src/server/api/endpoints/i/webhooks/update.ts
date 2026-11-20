@@ -19,6 +19,11 @@ export const meta = {
 	kind: 'write:account',
 
 	errors: {
+		invalidUrl: {
+			message: 'Invalid URL.',
+			code: 'INVALID_URL',
+			id: '1e2c0bba-5e1e-4f1f-8b8c-6f9f8b0f1e2c',
+		},
 		noSuchWebhook: {
 			message: 'No such webhook.',
 			code: 'NO_SUCH_WEBHOOK',
@@ -33,7 +38,7 @@ export const paramDef = {
 	properties: {
 		webhookId: { type: 'string', format: 'misskey:id' },
 		name: { type: 'string', minLength: 1, maxLength: 100 },
-		url: { type: 'string', minLength: 1, maxLength: 1024 },
+		url: { type: 'string', format: 'url', minLength: 1, maxLength: 1024 },
 		secret: { type: 'string', nullable: true, maxLength: 1024 },
 		on: { type: 'array', items: {
 			type: 'string', enum: webhookEventTypes,
@@ -63,6 +68,18 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.noSuchWebhook);
 			}
 
+			if (ps.url != null) {
+				let u: URL;
+				try {
+					u = new URL(ps.url);
+				} catch {
+					throw new ApiError(meta.errors.invalidUrl);
+				}
+				if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+					throw new ApiError(meta.errors.invalidUrl);
+				}
+			}
+
 			await this.webhooksRepository.update(webhook.id, {
 				name: ps.name,
 				url: ps.url,
@@ -71,9 +88,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				active: ps.active,
 			});
 
-			const updated = await this.webhooksRepository.findOneByOrFail({
+			const updated = await this.webhooksRepository.findOneBy({
 				id: ps.webhookId,
+				userId: me.id,
 			});
+
+			if (updated == null) {
+				throw new ApiError(meta.errors.noSuchWebhook);
+			}
 
 			this.globalEventService.publishInternalEvent('webhookUpdated', updated);
 		});
