@@ -54,7 +54,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 						marker: ps.marker,
 						file: packedFile,
 					});
+				}).catch(() => {
+					// pack失敗でも未処理のPromise Rejectionにしない
 				});
+			}).catch(() => {
+				// アップロード失敗時も未処理のPromise Rejectionにしない
 			});
 		});
 	}
