@@ -4,7 +4,6 @@
  */
 
 import { FindOneOptions, InsertQueryBuilder, ObjectLiteral, QueryRunner, ReplicationMode, Repository, SelectQueryBuilder } from 'typeorm';
-import { RelationCountLoader } from 'typeorm/query-builder/relation-count/RelationCountLoader.js';
 import { RelationIdLoader } from 'typeorm/query-builder/relation-id/RelationIdLoader.js';
 import { RawSqlResultsToEntityTransformer } from 'typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer.js';
 import { MiAbuseReportNotificationRecipient } from '@/models/AbuseReportNotificationRecipient.js';
@@ -98,12 +97,36 @@ Symbol.dispose ??= Symbol('Symbol.dispose');
 Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose');
 
 export interface MiRepository<T extends ObjectLiteral> {
+	createTableColumnNames(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>): string[];
+	createTableColumnNamesWithPrimaryKey(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>): string[];
 	insertOne(this: Repository<T> & MiRepository<T>, entity: QueryDeepPartialEntity<T>, findOptions?: Pick<FindOneOptions<T>, 'relations'>): Promise<T>;
 	selectAliasColumnNames(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>, builder: SelectQueryBuilder<T>): void;
 	useQueryRunner(this: Repository<T> & MiRepository<T>, mode: ReplicationMode): AsyncDisposableReference<QueryRunner>;
 }
 
 export const miRepository = {
+	createTableColumnNames(queryBuilder) {
+		// @ts-expect-error -- protected
+		const insertedColumns = queryBuilder.getInsertedColumns();
+		if (insertedColumns.length) {
+			return insertedColumns.map(column => column.databaseName);
+		}
+		if (!queryBuilder.expressionMap.mainAlias?.hasMetadata && !queryBuilder.expressionMap.insertColumns.length) {
+			// @ts-expect-error -- protected
+			const valueSets = queryBuilder.getValueSets();
+			if (valueSets.length === 1) {
+				return Object.keys(valueSets[0]);
+			}
+		}
+		return queryBuilder.expressionMap.insertColumns;
+	},
+	createTableColumnNamesWithPrimaryKey(queryBuilder) {
+		const columnNames = this.createTableColumnNames(queryBuilder);
+		if (!columnNames.includes('id')) {
+			columnNames.unshift('id');
+		}
+		return columnNames;
+	},
 	async insertOne(entity, findOptions?) {
 		await using queryRunnerADR = this.useQueryRunner('master');
 		const queryRunner = queryRunnerADR.value;
@@ -124,8 +147,7 @@ export const miRepository = {
 		const raw = await builder.execute();
 		mainAlias.name = name;
 		const relationId = await new RelationIdLoader(builder.connection, queryRunner, builder.expressionMap.relationIdAttributes).load(raw);
-		const relationCount = await new RelationCountLoader(builder.connection, queryRunner, builder.expressionMap.relationCountAttributes).load(raw);
-		const result = new RawSqlResultsToEntityTransformer(builder.expressionMap, builder.connection.driver, relationId, relationCount, queryRunner).transform(raw, mainAlias);
+		const result = new RawSqlResultsToEntityTransformer(builder.expressionMap, builder.connection.driver, relationId, queryRunner).transform(raw, mainAlias);
 		return result[0];
 	},
 	selectAliasColumnNames(queryBuilder, builder) {
