@@ -12,6 +12,7 @@ import { bindThis } from '@/decorators.js';
 import { GlobalEvents } from '@/core/GlobalEventService.js';
 import type { Packed } from '@/misc/json-schema.js';
 import { QueueService } from '@/core/QueueService.js';
+import { LoggerService } from '@/core/LoggerService.js';
 import type { OnApplicationShutdown } from '@nestjs/common';
 
 export type UserWebhookPayload<T extends WebhookEventTypes> =
@@ -27,12 +28,15 @@ export type UserWebhookPayload<T extends WebhookEventTypes> =
 
 @Injectable()
 export class UserWebhookService implements OnApplicationShutdown {
+	private logger: ReturnType<LoggerService['getLogger']> | null = null;
 	private activeWebhooksFetched = false;
 	private activeWebhooks: MiWebhook[] = [];
 
 	constructor(
 		@Inject(DI.redisForSub)
 		private redisForSub: Redis.Redis,
+		private loggerService: LoggerService,
+
 		@Inject(DI.webhooksRepository)
 		private webhooksRepository: WebhooksRepository,
 		private queueService: QueueService,
@@ -98,8 +102,15 @@ export class UserWebhookService implements OnApplicationShutdown {
 
 	@bindThis
 	private async onMessage(_: string, data: string): Promise<void> {
-		const obj = JSON.parse(data);
-		if (obj.channel !== 'internal') {
+		this.logger ??= this.loggerService.getLogger('user-webhook');
+		let obj: any;
+		try {
+			obj = JSON.parse(data);
+		} catch (err) {
+			this.logger.warn(`failed to parse message data: ${err instanceof Error ? err.message : err}`);
+			return;
+		}
+		if (obj == null || typeof obj !== 'object' || obj.channel !== 'internal') {
 			return;
 		}
 
