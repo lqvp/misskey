@@ -383,6 +383,7 @@ async function addImageFramePreset() {
 }
 
 function saveProfile() {
+	const previousAlwaysMarkNsfw = alwaysMarkNsfw.value;
 	misskeyApi('i/update', {
 		alwaysMarkNsfw: !!alwaysMarkNsfw.value,
 		autoSensitive: !!autoSensitive.value,
@@ -392,7 +393,7 @@ function saveProfile() {
 			title: i18n.ts.error,
 			text: err.message,
 		});
-		alwaysMarkNsfw.value = true;
+		alwaysMarkNsfw.value = previousAlwaysMarkNsfw;
 	});
 }
 

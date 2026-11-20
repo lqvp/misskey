@@ -64,6 +64,8 @@ const fetch = () => {
 	misskeyApiGet('hashtags/trend').then(res => {
 		stats.value = res;
 		fetching.value = false;
+	}).catch(() => {
+		fetching.value = false;
 	});
 };
 
