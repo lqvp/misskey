@@ -179,8 +179,8 @@ export const paramDef = {
 			items: {
 				type: 'object',
 				properties: {
-					name: { type: 'string' },
-					value: { type: 'string' },
+					name: { type: 'string', maxLength: 512 },
+					value: { type: 'string', maxLength: 2048 },
 				},
 				required: ['name', 'value'],
 			},
@@ -210,8 +210,9 @@ export const paramDef = {
 		pinnedPageId: { type: 'string', format: 'misskey:id', nullable: true },
 		mutedWords: muteWords,
 		hardMutedWords: muteWords,
-		mutedInstances: { type: 'array', items: {
+		mutedInstances: { type: 'array', maxItems: 500, items: {
 			type: 'string',
+			maxLength: 512,
 		} },
 		notificationRecieveConfig: {
 			type: 'object',
@@ -236,7 +237,7 @@ export const paramDef = {
 				test: notificationRecieveConfig,
 			},
 		},
-		emailNotificationTypes: { type: 'array', items: {
+		emailNotificationTypes: { type: 'array', maxItems: 500, items: {
 			type: 'string',
 		} },
 		alsoKnownAs: {
@@ -608,8 +609,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					.setParameter('url', url)
 					.execute();
 			}
-		} catch (_) {
-			// なにもしない
+		} catch (e) {
+			// リンク検証の失敗はプロフィール更新を妨げないが、ログには残す
+			this.apiLoggerService.logger.warn(`failed to verify link (${url}): ${e}`);
 		}
 	}
 }
