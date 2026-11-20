@@ -16,6 +16,9 @@ function safeParseFloat(str: unknown): number | null {
 	return num;
 }
 
+// MFMの描画時の最大ネスト深さ (これを超える深さのノードは描画しない)
+const MAX_MFM_NEST_DEPTH = 64;
+
 const QUOTE_STYLE = `
 display: block;
 margin: 8px;
@@ -101,7 +104,14 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 		if (props.text == null || props.text === '') return;
 
-		const rootAst = props.parsedNodes ?? (props.plain ? mfm.parseSimple : mfm.parse)(props.text);
+		let rootAst: mfm.MfmNode[];
+		try {
+			rootAst = props.parsedNodes ?? (props.plain ? mfm.parseSimple : mfm.parse)(props.text);
+		} catch (err) {
+			// 極端に深くネストされたMFMなどでパースに失敗した場合はプレーンテキストとして扱う
+			console.warn('Failed to parse MFM', err);
+			rootAst = mfm.parseSimple(props.text);
+		}
 
 		const validTime = (t: string | boolean | null | undefined) => {
 			if (t == null) return null;
@@ -127,7 +137,19 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 		 * @param scale How times large the text is
 		 * @param disableNyaize Whether nyaize is disabled or not
 		 */
-		const genEl = (ast: mfm.MfmNode[], scale: number, disableNyaize = false) => ast.map((token): VNode | string | (VNode | string)[] => {
+		// 深くネストされたMFMによるスタックオーバーフロー・フリーズを防ぐための現在のネスト深さ
+		let genElDepth = 0;
+		const genEl = (ast: mfm.MfmNode[], scale: number, disableNyaize = false) => {
+			if (genElDepth > MAX_MFM_NEST_DEPTH) return [];
+
+			genElDepth++;
+			try {
+				return genElInner(ast, scale, disableNyaize);
+			} finally {
+				genElDepth--;
+			}
+		};
+		const genElInner = (ast: mfm.MfmNode[], scale: number, disableNyaize = false) => ast.map((token): VNode | string | (VNode | string)[] => {
 			switch (token.type) {
 				case 'text': {
 					let text = token.props.text.replace(/(\r\n|\n|\r)/g, '\n');
