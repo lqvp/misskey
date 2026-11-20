@@ -78,6 +78,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.contentRestrictedByServer);
 			}
 
+			// フォロワー限定・ダイレクト等の非公開ノートは、閲覧者から見えない場合は存在しないものとして扱う
+			if (!(await this.noteEntityService.isVisibleForMe(note, me?.id ?? null))) {
+				throw new ApiError(meta.errors.noSuchNote);
+			}
+
 			return await this.noteEntityService.pack(note, me, {
 				detail: true,
 			});
