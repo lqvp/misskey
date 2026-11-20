@@ -55,6 +55,7 @@ export const meta = {
 			message: 'No such access token.',
 			code: 'NO_SUCH_ACCESS_TOKEN',
 			id: 'f7a0ab2f-01f4-4b20-9c2b-a92a4c6efb3c',
+			httpStatusCode: 404,
 		},
 	},
 } as const;
