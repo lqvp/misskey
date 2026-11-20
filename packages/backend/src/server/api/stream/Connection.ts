@@ -291,6 +291,12 @@ export default class Connection {
 
 		// 受信が追いつかないクライアントのために送信バッファを溜め続けないよう、閾値を超えたら切断して再接続させる
 		if (this.wsConnection.bufferedAmount + Buffer.byteLength(message) > MAX_BUFFERED_AMOUNT_PER_CONNECTION) {
+			// クライアントに理由を通知してから切断する（原因不明切断による再接続ストームの抑制）
+			try {
+				this.wsConnection.close(1013, 'Buffer overflow');
+			} catch {
+				// close中に接続が切れている場合は terminate でフォールバック
+			}
 			this.wsConnection.terminate();
 			return;
 		}
