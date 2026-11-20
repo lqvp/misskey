@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<template #key>Misskey</template>
 				<template #value>{{ version }}</template>
 			</MkKeyValue>
-			<div v-html="i18n.tsx.poweredByMisskeyDescription({ name: instance.name ?? host })">
+			<div v-html="i18n.tsx.poweredByMisskeyDescription({ name: escapeHtml(instance.name ?? host) })">
 			</div>
 			<FormLink to="/about-misskey">
 				<template #icon><i class="ti ti-info-circle"></i></template>
@@ -127,6 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <script lang="ts" setup>
 import { host, version } from '@@/js/config.js';
+import { escapeHtml } from '@/utility/escape-html.js';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
 import number from '@/filters/number.js';
