@@ -4,11 +4,11 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import type { UserListsRepository, UserListMembershipsRepository, BlockingsRepository } from '@/models/_.js';
+import { In } from 'typeorm';
+import type { UserListsRepository, UserListMembershipsRepository, BlockingsRepository, UsersRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import type { MiUserList } from '@/models/UserList.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
-import { GetterService } from '@/server/api/GetterService.js';
 import { UserListEntityService } from '@/core/entities/UserListEntityService.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '@/server/api/error.js';
@@ -83,10 +83,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		@Inject(DI.blockingsRepository)
 		private blockingsRepository: BlockingsRepository,
 
+		@Inject(DI.usersRepository)
+		private usersRepository: UsersRepository,
+
 		private userListService: UserListService,
 		private userListEntityService: UserListEntityService,
 		private idService: IdService,
-		private getterService: GetterService,
 		private roleService: RoleService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
@@ -114,32 +116,43 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				userListId: ps.listId,
 			})).map(x => x.userId);
 
-			for (const user of users) {
-				const currentUser = await this.getterService.getUser(user).catch(err => {
-					if (err.id === '15348ddd-432d-49c2-8a5a-8069753becff') throw new ApiError(meta.errors.noSuchUser);
-					throw err;
-				});
+			// N+1回避のため、ループ前に一括で取得・判定しておく
+			const userMap = new Map(
+				(users.length > 0
+					? await this.usersRepository.findBy({ id: In(users) })
+					: []
+				).map(u => [u.id, u]),
+			);
 
-				if (currentUser.id !== me.id) {
-					const blockExist = await this.blockingsRepository.exists({
-						where: {
-							blockerId: currentUser.id,
-							blockeeId: me.id,
-						},
-					});
-					if (blockExist) {
-						throw new ApiError(meta.errors.youHaveBeenBlocked);
-					}
+			const otherUserIds = users.filter(id => id !== me.id);
+			const blockedUserIds = new Set(
+				otherUserIds.length > 0
+					? (await this.blockingsRepository.findBy({
+						blockerId: In(otherUserIds),
+						blockeeId: me.id,
+					})).map(x => x.blockerId)
+					: [],
+			);
+
+			const existingUserIds = new Set(
+				(users.length > 0
+					? await this.userListMembershipsRepository.findBy({
+						userListId: userList.id,
+						userId: In(users),
+					})
+					: []
+				).map(x => x.userId),
+			);
+
+			for (const user of users) {
+				const currentUser = userMap.get(user);
+				if (currentUser == null) throw new ApiError(meta.errors.noSuchUser);
+
+				if (currentUser.id !== me.id && blockedUserIds.has(currentUser.id)) {
+					throw new ApiError(meta.errors.youHaveBeenBlocked);
 				}
 
-				const exist = await this.userListMembershipsRepository.exists({
-					where: {
-						userListId: userList.id,
-						userId: currentUser.id,
-					},
-				});
-
-				if (exist) {
+				if (existingUserIds.has(currentUser.id)) {
 					throw new ApiError(meta.errors.alreadyAdded);
 				}
 
