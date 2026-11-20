@@ -6,6 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ClipsRepository, ClipFavoritesRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '../../error.js';
@@ -73,11 +74,18 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.alreadyFavorited);
 			}
 
-			await this.clipFavoritesRepository.insert({
-				id: this.idService.gen(),
-				clipId: clip.id,
-				userId: me.id,
-			});
+			try {
+				await this.clipFavoritesRepository.insert({
+					id: this.idService.gen(),
+					clipId: clip.id,
+					userId: me.id,
+				});
+			} catch (e) {
+				if (isDuplicateKeyValueError(e)) {
+					throw new ApiError(meta.errors.alreadyFavorited);
+				}
+				throw e;
+			}
 		});
 	}
 }

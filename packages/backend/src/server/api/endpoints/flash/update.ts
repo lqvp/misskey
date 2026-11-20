@@ -43,9 +43,9 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		flashId: { type: 'string', format: 'misskey:id' },
-		title: { type: 'string' },
-		summary: { type: 'string' },
-		script: { type: 'string' },
+		title: { type: 'string', maxLength: 256 },
+		summary: { type: 'string', maxLength: 1024 },
+		script: { type: 'string', maxLength: 65536 },
 		permissions: { type: 'array', items: {
 			type: 'string',
 		} },
