@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import ms from 'ms';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { GetterService } from '@/server/api/GetterService.js';
 import { RoleService } from '@/core/RoleService.js';
@@ -15,6 +16,11 @@ export const meta = {
 
 	requireCredential: true,
 	kind: 'write:report-abuse',
+
+	limit: {
+		duration: ms('1minute'),
+		max: 20,
+	},
 
 	description: 'File a report.',
 

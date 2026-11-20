@@ -5,7 +5,7 @@
 
 import { Brackets } from 'typeorm';
 import { Inject, Injectable } from '@nestjs/common';
-import type { MiMeta, NotesRepository } from '@/models/_.js';
+import type { MiMeta, NotesRepository, UsersRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { DI } from '@/di-symbols.js';
@@ -13,6 +13,7 @@ import { CacheService } from '@/core/CacheService.js';
 import { IdService } from '@/core/IdService.js';
 import { QueryService } from '@/core/QueryService.js';
 import { MiLocalUser } from '@/models/User.js';
+import { RoleService } from '@/core/RoleService.js';
 import { FanoutTimelineEndpointService } from '@/core/FanoutTimelineEndpointService.js';
 import { FanoutTimelineName } from '@/core/FanoutTimelineService.js';
 import { ApiError } from '@/server/api/error.js';
@@ -78,6 +79,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		@Inject(DI.notesRepository)
 		private notesRepository: NotesRepository,
+
+		@Inject(DI.usersRepository)
+		private usersRepository: UsersRepository,
+
+		private roleService: RoleService,
 		private noteEntityService: NoteEntityService,
 		private queryService: QueryService,
 		private cacheService: CacheService,
@@ -86,6 +92,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private channelMutingService: ChannelMutingService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
+			const user = await this.usersRepository.findOneBy({ id: ps.userId });
+
+			if (user == null) throw new ApiError(meta.errors.noSuchUser);
+
+			const isModerator = await this.roleService.isModerator(me);
+
+			if (user.isSuspended && !isModerator) throw new ApiError(meta.errors.noSuchUser);
+
 			const untilId = ps.untilId ?? (ps.untilDate ? this.idService.gen(ps.untilDate!) : null);
 			const sinceId = ps.sinceId ?? (ps.sinceDate ? this.idService.gen(ps.sinceDate!) : null);
 			const isSelf = me && (me.id === ps.userId);
