@@ -17,7 +17,7 @@ export const paramDef = {
 	properties: {
 		key: { type: 'string', minLength: 1 },
 		value: {},
-		scope: { type: 'array', default: [], items: {
+		scope: { type: 'array', default: [], maxItems: 16, items: {
 			type: 'string', pattern: /^[a-zA-Z0-9_]+$/.toString().slice(1, -1),
 		} },
 		domain: { type: 'string', nullable: true },
