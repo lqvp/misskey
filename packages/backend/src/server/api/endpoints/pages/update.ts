@@ -55,9 +55,9 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		pageId: { type: 'string', format: 'misskey:id' },
-		title: { type: 'string' },
+		title: { type: 'string', maxLength: 256 },
 		name: { ...pageNameSchema, minLength: 1 },
-		summary: { type: 'string', nullable: true },
+		summary: { type: 'string', nullable: true, maxLength: 256 },
 		content: { type: 'array', items: {
 			type: 'object', additionalProperties: true,
 		} },
