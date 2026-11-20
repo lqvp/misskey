@@ -95,7 +95,7 @@ export class ExportUserListsProcessorService {
 				}
 			}
 
-			stream.end();
+			await new Promise<void>(resolve => stream.end(() => resolve()));
 			this.logger.succ(`Exported to: ${path}`);
 
 			const fileName = 'user-lists-' + dateFormat(new Date(), 'yyyy-MM-dd-HH-mm-ss') + '.csv';
