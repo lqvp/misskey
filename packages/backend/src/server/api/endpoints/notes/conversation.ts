@@ -74,6 +74,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				const p = await this.notesRepository.findOneBy({ id });
 				if (p == null) return;
 
+				// 非公開ノート（フォロワー限定・ダイレクト）は会話履歴に含めない
+				if (!(await this.noteEntityService.isVisibleForMe(p, me?.id ?? null))) return;
+
 				if (i > ps.offset!) {
 					conversation.push(p);
 				}
