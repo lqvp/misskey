@@ -190,6 +190,14 @@ export default class Connection {
 
 		const current = this.subscribingNotes.get(payload.id) ?? 0;
 
+		// 既に購読済みの場合は参照カウンタを増やさない（unsubNoteとの対称性を保ち、リスナーが解放されない状態を防ぐ）
+		if (current > 0) {
+			// access 順を更新して LRU を保つ
+			this.subscribingNotes.delete(payload.id);
+			this.subscribingNotes.set(payload.id, current);
+			return;
+		}
+
 		if (current === 0 && this.subscribingNotes.size >= MAX_SUBSCRIBING_NOTES_PER_CONNECTION) {
 			// 新規購読 かつ 購読上限に達している場合は、最も古い購読を解除して新規購読を追加する
 			const oldestId = this.subscribingNotes.keys().next().value;
