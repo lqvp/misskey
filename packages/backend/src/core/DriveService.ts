@@ -7,7 +7,6 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
-import type { Sharp } from 'sharp';
 import { sharpBmp } from '@misskey-dev/sharp-read-bmp';
 import { In, IsNull } from 'typeorm';
 import { DeleteObjectCommandInput, PutObjectCommandInput, NoSuchKey } from '@aws-sdk/client-s3';
@@ -44,6 +43,7 @@ import { correctFilename } from '@/misc/correct-filename.js';
 import { isMimeImage } from '@/misc/is-mime-image.js';
 import { ModerationLogService } from '@/core/ModerationLogService.js';
 import { UtilityService } from '@/core/UtilityService.js';
+import type { Sharp } from 'sharp';
 
 type AddFileArgs = {
 	/** User who wish to add file */
@@ -604,7 +604,7 @@ export class DriveService {
 			: false;
 
 		if (user && this.utilityService.isMediaSilencedHost(this.meta.mediaSilencedHosts, user.host)) file.isSensitive = true;
-		if (info.sensitive && profile!.autoSensitive) file.isSensitive = true;
+		if (info.sensitive && profile?.autoSensitive) file.isSensitive = true;
 		if (info.sensitive && this.meta.setSensitiveFlagAutomatically) file.isSensitive = true;
 		if (userRoleNSFW) file.isSensitive = true;
 
