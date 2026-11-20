@@ -10,6 +10,7 @@ import type { DriveFilesRepository, GalleryPostsRepository } from '@/models/_.js
 import type { MiDriveFile } from '@/models/DriveFile.js';
 import { GalleryPostEntityService } from '@/core/entities/GalleryPostEntityService.js';
 import { DI } from '@/di-symbols.js';
+import { ApiError } from '../../../error.js';
 
 export const meta = {
 	tags: ['gallery'],
@@ -32,7 +33,11 @@ export const meta = {
 	},
 
 	errors: {
-
+		noSuchPost: {
+			message: 'No such post.',
+			code: 'NO_SUCH_POST',
+			id: 'bff69d45-6165-41fa-a900-421b5a32bf11',
+		},
 	},
 } as const;
 
@@ -88,7 +93,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				fileIds: files ? files.map(file => file.id) : undefined,
 			});
 
-			const post = await this.galleryPostsRepository.findOneByOrFail({ id: ps.postId });
+			const post = await this.galleryPostsRepository.findOneBy({
+				id: ps.postId,
+				userId: me.id,
+			});
+
+			if (post == null) {
+				throw new ApiError(meta.errors.noSuchPost);
+			}
 
 			return await this.galleryPostEntityService.pack(post, me);
 		});
