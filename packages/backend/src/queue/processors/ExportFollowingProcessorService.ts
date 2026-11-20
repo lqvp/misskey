@@ -84,8 +84,13 @@ export class ExportFollowingProcessorService {
 
 				cursor = followings.at(-1)?.id ?? null;
 
+				const users = await this.usersRepository.findBy({
+					id: In(followings.map(x => x.followeeId)),
+				});
+				const usersMap = new Map(users.map(u => [u.id, u]));
+
 				for (const following of followings) {
-					const u = await this.usersRepository.findOneBy({ id: following.followeeId });
+					const u = usersMap.get(following.followeeId);
 					if (u == null) {
 						continue;
 					}

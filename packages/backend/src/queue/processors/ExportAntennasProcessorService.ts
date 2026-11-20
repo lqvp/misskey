@@ -64,7 +64,7 @@ export class ExportAntennasProcessorService {
 		};
 		try {
 			const antennas = await this.antennsRepository.findBy({ userId: job.data.user.id });
-			write('[');
+			await write('[');
 			for (const [index, antenna] of antennas.entries()) {
 				let users: MiUser[] | undefined;
 				if (antenna.userListId !== null) {
@@ -73,7 +73,7 @@ export class ExportAntennasProcessorService {
 						id: In(memberships.map(j => j.userId)),
 					});
 				}
-				write(JSON.stringify({
+				await write(JSON.stringify({
 					name: antenna.name,
 					src: antenna.src,
 					keywords: antenna.keywords,
@@ -90,11 +90,11 @@ export class ExportAntennasProcessorService {
 					excludeNotesInSensitiveChannel: antenna.excludeNotesInSensitiveChannel,
 				} satisfies Required<ExportedAntenna>));
 				if (antennas.length - 1 !== index) {
-					write(', ');
+					await write(', ');
 				}
 			}
-			write(']');
-			stream.end();
+			await write(']');
+			await new Promise<void>(resolve => stream.end(() => resolve()));
 
 			const fileName = 'antennas-' + DateFormat(new Date(), 'yyyy-MM-dd-HH-mm-ss') + '.json';
 			const driveFile = await this.driveService.addFile({ user, path, name: fileName, force: true, ext: 'json' });

@@ -62,14 +62,23 @@ export class ExportUserListsProcessorService {
 		try {
 			const stream = fs.createWriteStream(path, { flags: 'a' });
 
+			const allMemberships = await this.userListMembershipsRepository.findBy({
+				userListId: In(lists.map(list => list.id)),
+			});
+			const users = await this.usersRepository.findBy({
+				id: In(allMemberships.map(m => m.userId)),
+			});
+			const usersMap = new Map(users.map(u => [u.id, u]));
+
 			for (const list of lists) {
-				const memberships = await this.userListMembershipsRepository.findBy({ userListId: list.id });
-				const users = await this.usersRepository.findBy({
-					id: In(memberships.map(j => j.userId)),
-				});
+				const memberships = allMemberships.filter(m => m.userListId === list.id);
 				const usersWithReplies = new Set(memberships.filter(m => m.withReplies).map(m => m.userId));
 
-				for (const u of users) {
+				for (const membership of memberships) {
+					const u = usersMap.get(membership.userId);
+					if (u == null) {
+						continue;
+					}
 					const acct = this.utilityService.getFullApAccount(u.username, u.host);
 					// 3rd column and later will be key=value pairs
 					const content = `${list.name},${acct},withReplies=${usersWithReplies.has(u.id)}`;
