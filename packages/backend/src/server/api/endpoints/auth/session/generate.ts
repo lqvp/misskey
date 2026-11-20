@@ -17,6 +17,11 @@ export const meta = {
 
 	requireCredential: false,
 
+	limit: {
+		duration: 60 * 1000,
+		max: 10,
+	},
+
 	res: {
 		type: 'object',
 		optional: false, nullable: false,
