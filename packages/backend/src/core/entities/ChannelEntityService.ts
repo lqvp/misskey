@@ -184,10 +184,18 @@ export class ChannelEntityService {
 
 		const muting = me
 			? await this.channelMutingRepository
-				.findBy({
-					userId: me.id,
-					channelId: In(channels.map(it => it.id)),
-				})
+				.findBy([
+					{
+						userId: me.id,
+						channelId: In(channels.map(it => it.id)),
+						expiresAt: IsNull(),
+					},
+					{
+						userId: me.id,
+						channelId: In(channels.map(it => it.id)),
+						expiresAt: MoreThan(new Date()),
+					},
+				])
 				.then(it => new Set(it.map(it => it.channelId)))
 			: new Set<MiChannel['id']>();
 
