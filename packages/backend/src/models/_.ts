@@ -101,7 +101,6 @@ export interface MiRepository<T extends ObjectLiteral> {
 	insertOne(this: Repository<T> & MiRepository<T>, entity: QueryDeepPartialEntity<T>, findOptions?: Pick<FindOneOptions<T>, 'relations'>): Promise<T>;
 	selectAliasColumnNames(this: Repository<T> & MiRepository<T>, queryBuilder: InsertQueryBuilder<T>, builder: SelectQueryBuilder<T>): void;
 	useQueryRunner(this: Repository<T> & MiRepository<T>, mode: ReplicationMode): AsyncDisposableReference<QueryRunner>;
->>>>>>> fork/fix/invalid-queryrunner
 }
 
 export const miRepository = {
