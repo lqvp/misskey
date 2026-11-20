@@ -65,10 +65,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			if (!userProfile.loggedInDates.includes(today)) {
-				this.userProfilesRepository.update({ userId: user.id }, {
-					loggedInDates: [...userProfile.loggedInDates, today],
-				});
-				userProfile.loggedInDates = [...userProfile.loggedInDates, today];
+				// ログイン実績の最大値(login1000)をカバーできるよう、直近1000日分だけ保持する
+				const loggedInDates = [...userProfile.loggedInDates, today].slice(-1000);
+				await this.userProfilesRepository.update({ userId: user.id }, { loggedInDates });
+				userProfile.loggedInDates = loggedInDates;
 			}
 
 			return await this.userEntityService.pack(userProfile.user!, userProfile.user!, {

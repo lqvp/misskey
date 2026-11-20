@@ -124,7 +124,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				}
 			}
 
-			const poll = await this.pollsRepository.findOneByOrFail({ noteId: note.id });
+				// noteは検証済みだが、リクエスト処理中に削除された場合などpoll行が取得できないことがある
+			const poll = await this.pollsRepository.findOneBy({ noteId: note.id });
+			if (poll == null) {
+				throw new ApiError(meta.errors.noSuchNote);
+			}
 
 			if (poll.expiresAt && poll.expiresAt < createdAt) {
 				throw new ApiError(meta.errors.alreadyExpired);
