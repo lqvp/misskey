@@ -88,7 +88,6 @@ const tick = () => {
 				return itemUrl != null && ['http:', 'https:'].includes(itemUrl.protocol);
 			});
 			fetching.value = false;
-			fetching.value = false;
 		})
 		.catch(() => {
 			fetching.value = false;
