@@ -102,28 +102,6 @@ export class SearchService {
 	) {
 		if (meilisearch) {
 			this.meilisearchNoteIndex = meilisearch.index(`${config.meilisearch!.index}---notes`);
-			this.meilisearchNoteIndex.updateSettings({
-				searchableAttributes: [
-					'text',
-					'cw',
-				],
-				sortableAttributes: [
-					'createdAt',
-				],
-				filterableAttributes: [
-					'createdAt',
-					'userId',
-					'userHost',
-					'channelId',
-					'tags',
-				],
-				typoTolerance: {
-					enabled: false,
-				},
-				pagination: {
-					maxTotalHits: 10000,
-				},
-			});
 		}
 
 		if (config.meilisearch?.scope) {
@@ -132,6 +110,37 @@ export class SearchService {
 
 		this.provider = config.fulltextSearch?.provider ?? 'sqlLike';
 		this.loggerService.getLogger('SearchService').info(`-- Provider: ${this.provider}`);
+	}
+
+	public async onModuleInit(): Promise<void> {
+		if (this.meilisearchNoteIndex) {
+			try {
+				await this.meilisearchNoteIndex.updateSettings({
+					searchableAttributes: [
+						'text',
+						'cw',
+					],
+					sortableAttributes: [
+						'createdAt',
+					],
+					filterableAttributes: [
+						'createdAt',
+						'userId',
+						'userHost',
+						'channelId',
+						'tags',
+					],
+					typoTolerance: {
+						enabled: false,
+					},
+					pagination: {
+						maxTotalHits: 10000,
+					},
+				});
+			} catch (err) {
+				this.loggerService.getLogger('SearchService').error('Failed to update Meilisearch settings', err as Error);
+			}
+		}
 	}
 
 	@bindThis
