@@ -9,6 +9,7 @@ import type { MutingsRepository, MiMuting } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import type { MiUser } from '@/models/User.js';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { bindThis } from '@/decorators.js';
 import { CacheService } from '@/core/CacheService.js';
 
@@ -25,12 +26,25 @@ export class UserMutingService {
 
 	@bindThis
 	public async mute(user: MiUser, target: MiUser, expiresAt: Date | null = null): Promise<void> {
-		await this.mutingsRepository.insert({
-			id: this.idService.gen(),
-			expiresAt: expiresAt ?? null,
-			muterId: user.id,
-			muteeId: target.id,
-		});
+		// 過去の日時が指定された場合は即期限切れになるため、無期限として扱う
+		const normalizedExpiresAt = (expiresAt != null && expiresAt.getTime() > Date.now()) ? expiresAt : null;
+
+		// 二重ミュートでユニーク制約違反の生エラーが露出しないよう冪等化する
+		const exist = await this.mutingsRepository.existsBy({ muterId: user.id, muteeId: target.id });
+		if (exist) return;
+
+		try {
+			await this.mutingsRepository.insert({
+				id: this.idService.gen(),
+				expiresAt: normalizedExpiresAt,
+				muterId: user.id,
+				muteeId: target.id,
+			});
+		} catch (err) {
+			// 並行リクエストで先行挿入が確定した場合
+			if (isDuplicateKeyValueError(err)) return;
+			throw err;
+		}
 
 		this.cacheService.userMutingsCache.refresh(user.id);
 	}
