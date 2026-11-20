@@ -36,7 +36,13 @@ export function getPreferencesProfileMenu(): MenuItem[] {
 
 			store.set('enablePreferencesAutoCloudBackup', true);
 
-			cloudBackup();
+			cloudBackup().catch(err => {
+				os.alert({
+					type: 'error',
+					title: i18n.ts.somethingHappened,
+				});
+				console.error(err);
+			});
 		} else {
 			store.set('enablePreferencesAutoCloudBackup', false);
 		}

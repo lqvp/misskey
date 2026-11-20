@@ -159,6 +159,9 @@ createVisibilityAwareInterval(() => {
 
 	cloudBackup().then(() => {
 		latestBackupAt = Date.now();
+	}).catch(err => {
+		// latestBackupAtが更新されないため、次回のインターバールでリトライされる
+		console.error('prefer:cloudBackup failed', err);
 	});
 }, 1000 * 60 * 3);
 //#endregion
