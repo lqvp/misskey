@@ -195,6 +195,16 @@ const mfmParams = ref<string[]>([]);
 const select = ref(-1);
 const zIndex = os.claimZIndex('high');
 
+// sessionStorage のキャッシュは壊れた JSON の場合があるため、パース失敗時はキャッシュミスとして扱う
+function parseSessionCache<T>(cache: string, cacheKey: string): T | null {
+	try {
+		return JSON.parse(cache) as T;
+	} catch {
+		sessionStorage.removeItem(cacheKey);
+		return null;
+	}
+}
+
 function completeMfmParam(param: string) {
 	if (props.type !== 'mfmParam') throw new Error('Invalid type');
 	complete('mfmParam', props.q.params.toSpliced(-1, 1, param).join(','));
@@ -244,8 +254,10 @@ function exec() {
 		const cacheKey = `autocomplete:user:${props.q}`;
 		const cache = sessionStorage.getItem(cacheKey);
 
-		if (cache) {
-			users.value = JSON.parse(cache);
+		const cachedUsers = cache != null ? parseSessionCache<Misskey.entities.User[]>(cache, cacheKey) : null;
+
+		if (cachedUsers) {
+			users.value = cachedUsers;
 			fetching.value = false;
 		} else {
 			const [username, host] = props.q.toString().split('@');
@@ -263,14 +275,18 @@ function exec() {
 		}
 	} else if (props.type === 'hashtag') {
 		if (!props.q || props.q === '') {
-			hashtags.value = JSON.parse(miLocalStorage.getItem('hashtags') ?? '[]');
+			try {
+				hashtags.value = JSON.parse(miLocalStorage.getItem('hashtags') ?? '[]');
+			} catch {
+				hashtags.value = [];
+			}
 			fetching.value = false;
 		} else {
 			const cacheKey = `autocomplete:hashtag:${props.q}`;
 			const cache = sessionStorage.getItem(cacheKey);
-			if (cache) {
-				const hashtags = JSON.parse(cache);
-				hashtags.value = hashtags;
+			const cachedHashtags = cache != null ? parseSessionCache<string[]>(cache, cacheKey) : null;
+			if (cachedHashtags) {
+				hashtags.value = cachedHashtags;
 				fetching.value = false;
 			} else {
 				misskeyApi('hashtags/search', {

@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 	<MkKeyValue>
 		<template #key>{{ i18n.ts.description }}</template>
-		<template #value><div v-html="instance.description"></div></template>
+		<template #value><div v-html="sanitizeHtml(instance.description)"></div></template>
 	</MkKeyValue>
 
 	<FormSection>
@@ -76,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					<template #label>{{ i18n.ts.serverRules }}</template>
 					<ol class="_gaps_s" :class="$style.rules">
 						<li v-for="item in instance.serverRules" :key="item" :class="$style.rule">
-							<div :class="$style.ruleText" v-html="item"></div>
+							<div :class="$style.ruleText" v-html="sanitizeHtml(item)"></div>
 						</li>
 					</ol>
 				</MkFolder>
@@ -127,6 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <script lang="ts" setup>
 import { host, version } from '@@/js/config.js';
+import sanitizeHtml from 'sanitize-html';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
 import number from '@/filters/number.js';
