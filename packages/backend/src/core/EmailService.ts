@@ -22,6 +22,10 @@ import { escapeHtml } from '@/misc/escape-html.js';
 export class EmailService {
 	private logger: Logger;
 
+	// Cache of external email validation results (DNS/external API lookups), keyed by email address.
+	// Unauthenticated endpoints can hammer this, so keep it bounded and short-lived.
+	private emailValidationCache = new Map<string, { expiresAt: number, result: { valid: boolean, reason?: string | null } }>();
+
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
@@ -215,7 +219,11 @@ export class EmailService {
 		} = { valid: true, reason: null };
 
 		if (this.meta.enableActiveEmailValidation) {
-			if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
+			// DNS/外部APIへの問い合わせを伴うため、結果を短時間キャッシュする
+			const cached = this.emailValidationCache.get(emailAddress);
+			if (cached !== undefined && cached.expiresAt > Date.now()) {
+				validated = cached.result;
+			} else if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
 				try {
 					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
 				} catch (err) {
@@ -230,14 +238,28 @@ export class EmailService {
 			} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
 				validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
 			} else {
-				const { validate: validateEmail } = await import('deep-email-validator');
-				validated = await validateEmail({
-					email: emailAddress,
-					validateRegex: true,
-					validateMx: true,
-					validateTypo: false, // TLDを見ているみたいだけどclubとか弾かれるので
-					validateDisposable: true, // 捨てアドかどうかチェック
-					validateSMTP: false, // 日本だと25ポートが殆どのプロバイダーで塞がれていてタイムアウトになるので
+				if (this.meta.enableVerifymailApi && this.meta.verifymailAuthKey != null) {
+					validated = await this.verifyMail(emailAddress, this.meta.verifymailAuthKey);
+				} else if (this.meta.enableTruemailApi && this.meta.truemailInstance && this.meta.truemailAuthKey != null) {
+					validated = await this.trueMail(this.meta.truemailInstance, emailAddress, this.meta.truemailAuthKey);
+				} else {
+					const { validate: validateEmail } = await import('deep-email-validator');
+					validated = await validateEmail({
+						email: emailAddress,
+						validateRegex: true,
+						validateMx: true,
+						validateTypo: false, // TLDを見ているみたいだけどclubとか弾かれるので
+						validateDisposable: true, // 捨てアドかどうかチェック
+						validateSMTP: false, // 日本だと25ポートが殆どのプロバイダーで塞がれていてタイムアウトになるので
+					});
+				}
+
+				if (this.emailValidationCache.size > 1024) {
+					this.emailValidationCache.clear();
+				}
+				this.emailValidationCache.set(emailAddress, {
+					expiresAt: Date.now() + 60_000,
+					result: validated,
 				});
 			}
 		}

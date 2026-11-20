@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+import ms from 'ms';
 import { Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { EmailService } from '@/core/EmailService.js';
@@ -11,6 +12,11 @@ export const meta = {
 	tags: ['users'],
 
 	requireCredential: false,
+
+	limit: {
+		duration: ms('1minute'),
+		max: 30,
+	},
 
 	res: {
 		type: 'object',
