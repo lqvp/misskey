@@ -107,8 +107,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					total: memStats.total,
 				},
 				fs: {
-					total: fsStats[0].size,
-					used: fsStats[0].used,
+					total: fsStats[0]?.size ?? 0,
+					used: fsStats[0]?.used ?? 0,
 				},
 			};
 		});
