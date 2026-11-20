@@ -22,6 +22,11 @@ export const meta = {
 	kind: 'write:account',
 
 	errors: {
+		invalidUrl: {
+			message: 'Invalid URL.',
+			code: 'INVALID_URL',
+			id: '7cac7b06-4c59-49c4-bd5d-19f1aebc7e94',
+		},
 		tooManyWebhooks: {
 			message: 'You cannot create webhook any more.',
 			code: 'TOO_MANY_WEBHOOKS',
@@ -61,7 +66,7 @@ export const paramDef = {
 	type: 'object',
 	properties: {
 		name: { type: 'string', minLength: 1, maxLength: 100 },
-		url: { type: 'string', minLength: 1, maxLength: 1024 },
+		url: { type: 'string', format: 'url', minLength: 1, maxLength: 1024 },
 		secret: { type: 'string', maxLength: 1024, default: '' },
 		on: { type: 'array', items: {
 			type: 'string', enum: webhookEventTypes,
@@ -86,6 +91,16 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			const currentWebhooksCount = await this.webhooksRepository.countBy({
 				userId: me.id,
 			});
+			let u: URL;
+			try {
+				u = new URL(ps.url);
+			} catch {
+				throw new ApiError(meta.errors.invalidUrl);
+			}
+			if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+				throw new ApiError(meta.errors.invalidUrl);
+			}
+
 			if (currentWebhooksCount >= (await this.roleService.getUserPolicies(me.id)).webhookLimit) {
 				throw new ApiError(meta.errors.tooManyWebhooks);
 			}
