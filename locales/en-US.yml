@@ -2957,6 +2957,8 @@ _abuseReport:
 _moderationLogTypes:
   clearQueue: "Clear queue"
   promoteQueue: "Promote queue"
+  removeQueueJob: "Delete queue job"
+  retryQueueJob: "Retry queue job"
   createRole: "Role created"
   deleteRole: "Role deleted"
   updateRole: "Role updated"
