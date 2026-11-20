@@ -72,7 +72,8 @@ export class ExportUserListsProcessorService {
 				for (const u of users) {
 					const acct = this.utilityService.getFullApAccount(u.username, u.host);
 					// 3rd column and later will be key=value pairs
-					const content = `${list.name},${acct},withReplies=${usersWithReplies.has(u.id)}`;
+					// リスト名はユーザーが自由に設定できるため、CSV数式インジェクションを防ぐ
+					const content = `${escapeCsvCell(list.name)},${acct},withReplies=${usersWithReplies.has(u.id)}`;
 					await new Promise<void>((res, rej) => {
 						stream.write(content + '\n', err => {
 							if (err) {
@@ -102,4 +103,15 @@ export class ExportUserListsProcessorService {
 			cleanup();
 		}
 	}
+}
+
+/**
+ * ユーザーが自由に設定できる文字列をCSVセルとして書き出す際、
+ * 数式インジェクション（=、+、-、@ 始まり）を防ぐためにシングルクォートを前置する。
+ */
+function escapeCsvCell(value: string): string {
+	if (/^[=+\-@\t\r]/.test(value)) {
+		return `'${value}`;
+	}
+	return value;
 }
