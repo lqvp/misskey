@@ -28,7 +28,8 @@ export class RegistryApiService {
 		// TODO: 作成できるキーの数を制限する
 
 		// 64KBを超える値はDBに保存できない可能性があるため拒否
-		const serialized = JSON.stringify(value);
+		// JSON.stringify は undefined 入力で undefined を返すため、長さ判定用に空文字へフォールバックする
+		const serialized = JSON.stringify(value) ?? '';
 		if (serialized.length > 64 * 1024) {
 			throw new IdentifiableError('f7dd41ac-6e5f-4d4d-8e75-2e7b6b0f9a6a', 'value is too big.');
 		}

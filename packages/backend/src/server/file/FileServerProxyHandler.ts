@@ -36,6 +36,7 @@ export class FileServerProxyHandler {
 		private fileResolver: FileServerFileResolver,
 		private assetsPath: string,
 		private imageProcessingService: ImageProcessingService,
+		private checkProxyRateLimit: (request: FastifyRequest) => Promise<boolean>,
 	) {}
 
 	public async handle(request: FastifyRequest<{ Params: { url: string }; Querystring: ProxyQuery }>, reply: FastifyReply) {
@@ -54,6 +55,13 @@ export class FileServerProxyHandler {
 		}
 
 		this.validateUserAgent(request);
+
+		// 外部プロキシにリダイレクトされた場合はフェッチしないため、
+		// レートリミットは実際にフェッチを行うパスのみに適用する
+		if (await this.checkProxyRateLimit(request)) {
+			reply.code(429);
+			return;
+		}
 
 		// Create temp file
 		const file = await this.getStreamAndTypeFromUrl(url);

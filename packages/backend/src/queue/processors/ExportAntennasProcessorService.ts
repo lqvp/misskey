@@ -94,7 +94,11 @@ export class ExportAntennasProcessorService {
 				}
 			}
 			await write(']');
-			await new Promise<void>(resolve => stream.end(() => resolve()));
+			await new Promise<void>((resolve, reject) => {
+				// ストリームのエラーが放置されると promise が未解決のまま残るためリスンしておく
+				stream.once('error', reject);
+				stream.end(() => resolve());
+			});
 
 			const fileName = 'antennas-' + DateFormat(new Date(), 'yyyy-MM-dd-HH-mm-ss') + '.json';
 			const driveFile = await this.driveService.addFile({ user, path, name: fileName, force: true, ext: 'json' });

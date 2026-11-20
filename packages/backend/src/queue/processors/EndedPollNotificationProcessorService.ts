@@ -43,6 +43,8 @@ export class EndedPollNotificationProcessorService {
 			.select('DISTINCT vote.userId', 'userId')
 			.where('vote.noteId = :noteId', { noteId: note.id })
 			.andWhere('user.host IS NULL')
+			// 投稿者は別途 userIds に含めるため、ここでは除外して二重通知を防ぐ
+			.andWhere('vote.userId != :authorId', { authorId: note.userId })
 			.innerJoin('vote.user', 'user')
 			.getRawMany<{ userId: string }>()
 			.then(votes => votes.map(v => v.userId));

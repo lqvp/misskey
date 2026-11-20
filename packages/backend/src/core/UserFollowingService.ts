@@ -575,17 +575,17 @@ export class UserFollowingService implements OnModuleInit {
 			followerId: follower.id,
 		});
 
+		if (request == null) {
+			throw new IdentifiableError('17447091-ce07-46dd-b331-c1fd4f15b1e7', 'request not found');
+		}
+
 		if (this.userEntityService.isRemoteUser(followee)) {
-			const followActivityId = request != null ? this.apRendererService.getLocalFollowRequestActivityId(request) : undefined;
+			const followActivityId = this.apRendererService.getLocalFollowRequestActivityId(request);
 			const content = this.apRendererService.addContext(this.apRendererService.renderUndo(this.apRendererService.renderFollow(follower as MiPartialLocalUser | MiPartialRemoteUser, followee as MiPartialRemoteUser, followActivityId), follower));
 
 			if (this.userEntityService.isLocalUser(follower)) { // 本来このチェックは不要だけどTSに怒られるので
 				this.queueService.deliver(follower, content, followee.inbox, false);
 			}
-		}
-
-		if (request == null) {
-			throw new IdentifiableError('17447091-ce07-46dd-b331-c1fd4f15b1e7', 'request not found');
 		}
 
 		await this.followRequestsRepository.delete({
@@ -618,6 +618,14 @@ export class UserFollowingService implements OnModuleInit {
 		const followActivityId = this.userEntityService.isLocalUser(follower) && this.userEntityService.isRemoteUser(followee)
 			? this.apRendererService.getLocalFollowRequestActivityId(request)
 			: request.requestId;
+
+		// check blocking again (race with block()).
+		const [blocking, blocked] = await Promise.all([
+			this.userBlockingService.checkBlocked(followee.id, follower.id),
+			this.userBlockingService.checkBlocked(follower.id, followee.id),
+		]);
+
+		if (blocking || blocked) return;
 
 		await this.insertFollowingDoc(followee, follower, false, request.withReplies, followActivityId);
 

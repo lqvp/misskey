@@ -49,5 +49,11 @@ export function sanitizeSvg(svg: string): string {
 	return sanitizeHtml(svg, {
 		allowedTags,
 		allowedAttributes,
+		// デフォルトだと属性名・タグ名が小文字化され、viewBox / preserveAspectRatio が
+		// 許可リスト（キャメルケース）と照合できずに除去されてしまうため無効化する
+		parser: {
+			lowerCaseAttributeNames: false,
+			lowerCaseTags: false,
+		},
 	});
 }

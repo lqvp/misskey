@@ -4,6 +4,7 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { DI } from '@/di-symbols.js';
 import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import type { NotesRepository, UsersRepository, PollsRepository, PollVotesRepository, MiUser } from '@/models/_.js';
@@ -20,6 +21,9 @@ import { UserBlockingService } from '@/core/UserBlockingService.js';
 @Injectable()
 export class PollService {
 	constructor(
+		@Inject(DI.db)
+		private db: DataSource,
+
 		@Inject(DI.usersRepository)
 		private usersRepository: UsersRepository,
 
@@ -74,35 +78,39 @@ export class PollService {
 		}
 
 		const insertedVoteId = this.idService.gen();
-		try {
-			await this.pollVotesRepository.insert({
-				id: insertedVoteId,
-				noteId: note.id,
-				userId: user.id,
-				choice: choice,
-			});
-		} catch (err) {
-			// (userId, noteId, choice) のユニーク制約違反＝並行リクエストで同じ投票が先に確定した場合
-			if (isDuplicateKeyValueError(err)) throw new Error('already voted');
-			throw err;
-		}
-
-		if (!poll.multiple) {
-			// 単一選択には (userId, noteId) のユニーク制約が無いため、
-			// 並行して別の選択肢の投票が確定していた場合はこちらの投票を取り消す
-			const other = await this.pollVotesRepository.findOneBy({
-				noteId: note.id,
-				userId: user.id,
-			});
-			if (other != null && other.id !== insertedVoteId) {
-				await this.pollVotesRepository.delete({ id: insertedVoteId });
-				throw new Error('already voted');
+		// 投票の追加と票数の更新はセットでトランザクションに載せ、
+		// 片方だけ適用された状態でプロセスが落ちないようにする
+		await this.db.transaction(async () => {
+			try {
+				await this.pollVotesRepository.insert({
+					id: insertedVoteId,
+					noteId: note.id,
+					userId: user.id,
+					choice: choice,
+				});
+			} catch (err) {
+				// (userId, noteId, choice) のユニーク制約違反＝並行リクエストで同じ投票が先に確定した場合
+				if (isDuplicateKeyValueError(err)) throw new Error('already voted');
+				throw err;
 			}
-		}
 
-		// Increment votes count
-		const index = choice + 1; // In SQL, array index is 1 based
-		await this.pollsRepository.query('UPDATE poll SET votes[$1] = votes[$1] + 1 WHERE "noteId" = $2', [index, poll.noteId]);
+			if (!poll.multiple) {
+				// 単一選択には (userId, noteId) のユニーク制約が無いため、
+				// 並行して別の選択肢の投票が確定していた場合はこちらの投票を取り消す
+				const other = await this.pollVotesRepository.findOneBy({
+					noteId: note.id,
+					userId: user.id,
+				});
+				if (other != null && other.id !== insertedVoteId) {
+					await this.pollVotesRepository.delete({ id: insertedVoteId });
+					throw new Error('already voted');
+				}
+			}
+
+			// Increment votes count
+			const index = choice + 1; // In SQL, array index is 1 based
+			await this.pollsRepository.query('UPDATE poll SET votes[$1] = votes[$1] + 1 WHERE "noteId" = $2', [index, poll.noteId]);
+		});
 
 		this.globalEventService.publishNoteStream(note, 'pollVoted', {
 			choice: choice,

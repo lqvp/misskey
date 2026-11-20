@@ -127,7 +127,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			});
 
 			if (moderator) {
-				this.moderationLogService.log(moderator, 'addCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'addCustomEmoji', {
 					emojiId: emoji.id,
 					emoji: emoji,
 				});
@@ -202,7 +202,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 
 		if (moderator) {
 			const updated = await this.emojisRepository.findOneByOrFail({ id: id });
-			this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+			await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 				emojiId: emoji.id,
 				before: emoji,
 				after: updated,
@@ -224,12 +224,14 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		})));
 
 		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
 			for (const emoji of emojis) {
-				const updated = await this.emojisRepository.findOneByOrFail({ id: emoji.id });
-				this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 					emojiId: emoji.id,
 					before: emoji,
-					after: updated,
+					after: updatedMap.get(emoji.id),
 				});
 			}
 		}
@@ -255,12 +257,14 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		});
 
 		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
 			for (const emoji of emojis) {
-				const updated = await this.emojisRepository.findOneByOrFail({ id: emoji.id });
-				this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 					emojiId: emoji.id,
 					before: emoji,
-					after: updated,
+					after: updatedMap.get(emoji.id),
 				});
 			}
 		}
@@ -285,12 +289,14 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		})));
 
 		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
 			for (const emoji of emojis) {
-				const updated = await this.emojisRepository.findOneByOrFail({ id: emoji.id });
-				this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 					emojiId: emoji.id,
 					before: emoji,
-					after: updated,
+					after: updatedMap.get(emoji.id),
 				});
 			}
 		}
@@ -316,12 +322,14 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		});
 
 		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
 			for (const emoji of emojis) {
-				const updated = await this.emojisRepository.findOneByOrFail({ id: emoji.id });
-				this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 					emojiId: emoji.id,
 					before: emoji,
-					after: updated,
+					after: updatedMap.get(emoji.id),
 				});
 			}
 		}
@@ -347,12 +355,14 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		});
 
 		if (moderator) {
+			// 絵文字ごとに再取得するとN+1になるため、一括取得してマップで引く
+			const updatedEmojis = await this.emojisRepository.find({ where: { id: In(ids) } });
+			const updatedMap = new Map(updatedEmojis.map(emoji => [emoji.id, emoji]));
 			for (const emoji of emojis) {
-				const updated = await this.emojisRepository.findOneByOrFail({ id: emoji.id });
-				this.moderationLogService.log(moderator, 'updateCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'updateCustomEmoji', {
 					emojiId: emoji.id,
 					before: emoji,
-					after: updated,
+					after: updatedMap.get(emoji.id),
 				});
 			}
 		}
@@ -377,7 +387,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		});
 
 		if (moderator) {
-			this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
+			await this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
 				emojiId: emoji.id,
 				emoji: emoji,
 			});
@@ -394,7 +404,7 @@ export class CustomEmojiService implements OnApplicationShutdown {
 
 		if (moderator) {
 			for (const emoji of emojis) {
-				this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
+				await this.moderationLogService.log(moderator, 'deleteCustomEmoji', {
 					emojiId: emoji.id,
 					emoji: emoji,
 				});

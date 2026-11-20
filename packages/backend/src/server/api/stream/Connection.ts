@@ -159,7 +159,7 @@ export default class Connection {
 		const { type, body } = obj;
 
 		switch (type) {
-			case 'readNotification': this.onReadNotification(body); break;
+			case 'readNotification': await this.onReadNotification(body); break;
 			case 'subNote': this.onSubscribeNote(body); break;
 			case 's': this.onSubscribeNote(body); break; // alias
 			case 'sr': this.onSubscribeNote(body); break;
@@ -178,10 +178,10 @@ export default class Connection {
 	}
 
 	@bindThis
-	private onReadNotification(payload: JsonValue | undefined) {
+	private async onReadNotification(payload: JsonValue | undefined) {
 		// 未認証（ゲスト）接続では通知の既読処理は行えない
 		if (this.user == null) return;
-		this.notificationService.readAllNotification(this.user.id);
+		await this.notificationService.readAllNotification(this.user.id);
 	}
 
 	/**

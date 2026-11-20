@@ -22,6 +22,7 @@ import { bindThis } from '@/decorators.js';
 import { CacheService } from '@/core/CacheService.js';
 import { UserFollowingService } from '@/core/UserFollowingService.js';
 import { UserListService } from '@/core/UserListService.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 
 @Injectable()
 export class UserBlockingService implements OnModuleInit {
@@ -75,7 +76,13 @@ export class UserBlockingService implements OnModuleInit {
 		const exist = await this.blockingsRepository.existsBy({ blockerId: blocker.id, blockeeId: blockee.id });
 		if (exist) return;
 
-		await this.blockingsRepository.insert(blocking);
+		try {
+			await this.blockingsRepository.insert(blocking);
+		} catch (e) {
+			if (!isDuplicateKeyValueError(e)) throw e;
+
+			// 並行リクエストでブロックが作成済みだった場合は以降の処理だけ実行する
+		}
 
 		try {
 			await Promise.all([

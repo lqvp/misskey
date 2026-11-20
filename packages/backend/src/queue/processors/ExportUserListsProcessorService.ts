@@ -96,7 +96,11 @@ export class ExportUserListsProcessorService {
 				}
 			}
 
-			await new Promise<void>(resolve => stream.end(() => resolve()));
+			await new Promise<void>((resolve, reject) => {
+				// ストリームのエラーが放置されると promise が未解決のまま残るためリスンしておく
+				stream.once('error', reject);
+				stream.end(() => resolve());
+			});
 			this.logger.succ(`Exported to: ${path}`);
 
 			const fileName = 'user-lists-' + dateFormat(new Date(), 'yyyy-MM-dd-HH-mm-ss') + '.csv';
