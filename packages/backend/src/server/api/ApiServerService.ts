@@ -16,6 +16,8 @@ import { bindThis } from '@/decorators.js';
 import endpoints from './endpoints.js';
 import { ApiCallService } from './ApiCallService.js';
 import { SignupApiService } from './SignupApiService.js';
+import { RateLimiterService } from './RateLimiterService.js';
+import { getIpHash } from '@/misc/get-ip-hash.js';
 import { SigninApiService } from './SigninApiService.js';
 import { SigninWithPasskeyApiService } from './SigninWithPasskeyApiService.js';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
@@ -39,6 +41,7 @@ export class ApiServerService {
 		private signupApiService: SignupApiService,
 		private signinApiService: SigninApiService,
 		private signinWithPasskeyApiService: SigninWithPasskeyApiService,
+		private rateLimiterService: RateLimiterService,
 	) {
 		//this.createServer = this.createServer.bind(this);
 	}
@@ -155,12 +158,23 @@ export class ApiServerService {
 		});
 
 		fastify.post<{ Params: { session: string; } }>('/miauth/:session/check', async (request, reply) => {
+			// トークンがそのまま返るエンドポイントのため、ブルートフォース対策としてIP単位のレートリミットを設ける
+			if (this.config.enableIpRateLimit) {
+				const rateLimit = await this.rateLimiterService.limit({ key: 'miauthSessionCheck', duration: 60 * 1000, max: 100 }, getIpHash(request.ip));
+				if (rateLimit != null) {
+					reply.code(429);
+					return {
+						ok: false,
+					};
+				}
+			}
+
 			const token = await this.accessTokensRepository.findOneBy({
 				session: request.params.session,
 			});
 
 			if (token && token.session != null && !token.fetched) {
-				this.accessTokensRepository.update(token.id, {
+				await this.accessTokensRepository.update(token.id, {
 					fetched: true,
 				});
 
