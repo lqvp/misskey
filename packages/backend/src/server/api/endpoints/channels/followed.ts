@@ -9,6 +9,7 @@ import type { ChannelFollowingsRepository } from '@/models/_.js';
 import { QueryService } from '@/core/QueryService.js';
 import { ChannelEntityService } from '@/core/entities/ChannelEntityService.js';
 import { DI } from '@/di-symbols.js';
+import type { Packed } from '@/misc/json-schema.js';
 
 export const meta = {
 	tags: ['channels', 'account'],
@@ -65,7 +66,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				.limit(ps.limit)
 				.getMany();
 
-			return await Promise.all(followings.map(x => this.channelEntityService.pack(x.followeeId, me)));
+			// packMany はID昇順に並べ替えるため、ページネーションの順序（降順）をここで復元する
+			const packed = await this.channelEntityService.packMany(followings.map(x => x.followeeId), me);
+			const packedMap = new Map(packed.map(p => [p.id, p]));
+			return followings
+				.map(x => packedMap.get(x.followeeId))
+				.filter((p): p is Packed<'Channel'> => p != null);
 		});
 	}
 }
