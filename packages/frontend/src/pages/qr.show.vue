@@ -37,6 +37,7 @@ import { ensureSignin } from '@/i.js';
 import { userPage, userName } from '@@/js/user.js';
 import misskeysvg from '/client-assets/misskey.svg';
 import { getStaticImageUrl } from '@/utility/media-proxy.js';
+import { sanitizeSvg } from '@/utility/sanitize-svg.js';
 import { i18n } from '@/i18n.js';
 import { qrOptions } from '@/utility/qr-code.js';
 
@@ -60,7 +61,7 @@ function share() {
 }
 
 const qrSvg = computed(() => {
-	return qrcode(`${url}/users/${$i.id}`, {
+	return sanitizeSvg(qrcode(`${url}/users/${$i.id}`, {
 		...qrOptions,
 		size: 600,
 		margin: 3,
@@ -71,7 +72,7 @@ const qrSvg = computed(() => {
 			size: 0.25,
 			margin: 16,
 		},
-	});
+	}));
 });
 
 //#region flip
