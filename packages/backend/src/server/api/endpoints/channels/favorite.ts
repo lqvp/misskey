@@ -8,6 +8,7 @@ import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { ChannelFavoritesRepository, ChannelsRepository } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import { DI } from '@/di-symbols.js';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { ApiError } from '../../error.js';
 
 export const meta = {
@@ -56,11 +57,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.noSuchChannel);
 			}
 
-			await this.channelFavoritesRepository.insert({
-				id: this.idService.gen(),
-				userId: me.id,
-				channelId: channel.id,
-			});
+			try {
+				await this.channelFavoritesRepository.insert({
+					id: this.idService.gen(),
+					userId: me.id,
+					channelId: channel.id,
+				});
+			} catch (e) {
+				if (isDuplicateKeyValueError(e)) {
+					// 既にお気に入りに登録済みの場合は何もしない
+					return;
+				}
+				throw e;
+			}
 		});
 	}
 }

@@ -4,7 +4,7 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
-import { In } from 'typeorm';
+import { In, IsNull, MoreThan } from 'typeorm';
 import { DI } from '@/di-symbols.js';
 import type {
 	ChannelFavoritesRepository,
@@ -62,7 +62,7 @@ export class ChannelEntityService {
 		let bannerFile: MiDriveFile | null = null;
 		if (channel.bannerId) {
 			bannerFile = opts?.bannerFiles?.get(channel.bannerId)
-				?? await this.driveFilesRepository.findOneByOrFail({ id: channel.bannerId });
+				?? await this.driveFilesRepository.findOneBy({ id: channel.bannerId });
 		}
 
 		let isFollowing = false;
@@ -84,10 +84,18 @@ export class ChannelEntityService {
 			});
 
 			isMuting = opts?.muting?.has(channel.id) ?? await this.channelMutingRepository.exists({
-				where: {
-					userId: me.id,
-					channelId: channel.id,
-				},
+				where: [
+					{
+						userId: me.id,
+						channelId: channel.id,
+						expiresAt: IsNull(),
+					},
+					{
+						userId: me.id,
+						channelId: channel.id,
+						expiresAt: MoreThan(new Date()),
+					},
+				],
 			});
 		}
 
