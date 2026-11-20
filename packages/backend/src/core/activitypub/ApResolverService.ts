@@ -155,6 +155,10 @@ export class Resolver {
 			case 'notes':
 				return this.notesRepository.findOneByOrFail({ id: parsed.id })
 					.then(async note => {
+						// ダイレクトノートはURIを知っている任意のサーバーに内容を渡さない
+						if (note.visibility === 'specified') {
+							throw new IdentifiableError('0dc86cf6-7cd6-4e56-b1e6-5903d62d7ea5', `cannot resolve specified note: ${note.id}`);
+						}
 						if (parsed.rest === 'activity') {
 							// this refers to the create activity and not the note itself
 							return this.apRendererService.addContext(this.apRendererService.renderCreate(await this.apRendererService.renderNote(note), note));
@@ -171,7 +175,13 @@ export class Resolver {
 					this.notesRepository.findOneByOrFail({ id: parsed.id }),
 					this.pollsRepository.findOneByOrFail({ noteId: parsed.id }),
 				])
-					.then(([note, poll]) => this.apRendererService.renderQuestion({ id: note.userId }, note, poll));
+					.then(([note, poll]) => {
+						// ダイレクトノートはURIを知っている任意のサーバーに内容を渡さない
+						if (note.visibility === 'specified') {
+							return Promise.reject(new IdentifiableError('0dc86cf6-7cd6-4e56-b1e6-5903d62d7ea5', `cannot resolve specified note: ${note.id}`));
+						}
+						return this.apRendererService.renderQuestion({ id: note.userId }, note, poll);
+					});
 			case 'likes':
 				return this.noteReactionsRepository.findOneByOrFail({ id: parsed.id }).then(async reaction =>
 					this.apRendererService.addContext(await this.apRendererService.renderLike(reaction, { uri: null })));
