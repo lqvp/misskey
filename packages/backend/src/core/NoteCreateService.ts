@@ -1015,15 +1015,17 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 	@bindThis
 	private async createMentionedEvents(mentionedUsers: MinimumUser[], note: MiNote, nm: NotificationManager) {
-		for (const u of mentionedUsers.filter(u => this.userEntityService.isLocalUser(u))) {
-			const isThreadMuted = await this.noteThreadMutingsRepository.exists({
-				where: {
-					userId: u.id,
-					threadId: note.threadId ?? note.id,
-				},
-			});
+		const localMentionedUsers = mentionedUsers.filter(u => this.userEntityService.isLocalUser(u));
+		if (localMentionedUsers.length === 0) return;
 
-			if (isThreadMuted) {
+		// 一度のクエリでミュート済みユーザーをまとめて取得する (N+1 解消)
+		const threadMutedUserIds = new Set((await this.noteThreadMutingsRepository.findBy({
+			userId: In(localMentionedUsers.map(u => u.id)),
+			threadId: note.threadId ?? note.id,
+		})).map(x => x.userId));
+
+		for (const u of localMentionedUsers) {
+			if (threadMutedUserIds.has(u.id)) {
 				continue;
 			}
 
