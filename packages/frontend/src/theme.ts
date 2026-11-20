@@ -159,7 +159,13 @@ class ThemeManager extends EventEmitter<ThemeManagerEvents> {
 		for (const key of themeProps) {
 			const value = this.currentCompiledTheme[key];
 			if (value) {
-				window.document.documentElement.style.setProperty(`--MI_THEME-${key}`, value.toString());
+				// ユーザーがインストール可能なテーマコード由来の値のため、CSSの構造を壊しうる文字列は適用しない
+				const sanitized = sanitizeThemeValue(value);
+				if (sanitized != null) {
+					window.document.documentElement.style.setProperty(`--MI_THEME-${key}`, sanitized);
+				} else {
+					window.document.documentElement.style.removeProperty(`--MI_THEME-${key}`);
+				}
 			} else {
 				window.document.documentElement.style.removeProperty(`--MI_THEME-${key}`);
 			}
@@ -169,6 +175,17 @@ class ThemeManager extends EventEmitter<ThemeManagerEvents> {
 
 		this.emit('themeChanging');
 	}
+}
+
+/**
+ * ユーザーがインストール可能なテーマの値はJSON5パースのみで検証されておらず、
+ * CSS変数としてそのまま適用すると構造を壊す可能性があるため、使用可能な文字種に制限する。
+ */
+function sanitizeThemeValue(value: string): string | null {
+	// 色コード・rgb/hsl関数・数値・単位・引用符文字列など、一般的なテーマ値で使われる文字のみ許可する
+	if (!/^[\w\-\s(),.%#'"/]+$/.test(value)) return null;
+	if (value.length > 512) return null;
+	return value;
 }
 
 export const themeManager = new ThemeManager();
