@@ -46,6 +46,8 @@ import type { EventEmitter } from 'events';
 
 const MAX_CHANNELS_PER_CONNECTION = 32;
 const MAX_SUBSCRIBING_NOTES_PER_CONNECTION = 1536;
+// 同一ノートへの購読は1コネクション内で多くて数コンポーネント分なので、上限を設けてカウンタの無限増加を防ぐ
+const MAX_NOTE_SUBSCRIPTION_REFS_PER_NOTE = 16;
 const MAX_BUFFERED_AMOUNT_PER_CONNECTION = 1024 * 1024 * 8; // 8MiB
 
 /**
@@ -190,6 +192,14 @@ export default class Connection {
 		if (!payload.id || typeof payload.id !== 'string') return;
 
 		const current = this.subscribingNotes.get(payload.id) ?? 0;
+
+		// 同一コンポーネントが複数回購読しても1参照として扱い、カウンタの無限増加を防ぐ
+		if (current >= MAX_NOTE_SUBSCRIPTION_REFS_PER_NOTE) {
+			// access 順を更新して LRU を保つ
+			this.subscribingNotes.delete(payload.id);
+			this.subscribingNotes.set(payload.id, current);
+			return;
+		}
 
 		if (current === 0 && this.subscribingNotes.size >= MAX_SUBSCRIBING_NOTES_PER_CONNECTION) {
 			// 新規購読 かつ 購読上限に達している場合は、最も古い購読を解除して新規購読を追加する
